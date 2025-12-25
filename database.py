@@ -1,99 +1,102 @@
 from __future__ import annotations
 
-import sqlite3
-from contextlib import contextmanager
-from typing import Any, Iterable, Iterator
+from typing import Any
+
+from supabase import Client, create_client
+
+
+class DatabaseError(RuntimeError):
+    pass
 
 
 class Database:
-    def __init__(self, db_path: str = "points.db", timeout: float = 5.0):
-        self._conn = sqlite3.connect(db_path, timeout=timeout)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA foreign_keys = ON")
+    def __init__(self, *, url: str, service_role_key: str):
+        self._client: Client = create_client(url, service_role_key)
 
-    def close(self) -> None:
-        self._conn.close()
+    @staticmethod
+    def _extract_scalar(data: Any) -> Any:
+        if isinstance(data, list):
+            if not data:
+                return None
+            value = data[0]
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    return next(iter(value.values()))
+                return value
+            return value
+        return data
 
-    @contextmanager
-    def transaction(self) -> Iterator[None]:
+    @staticmethod
+    def _unwrap(response: Any, *, context: str) -> Any:
+        error = getattr(response, "error", None)
+        if error:
+            raise DatabaseError(f"{context} failed: {error}")
+        return getattr(response, "data", None)
+
+    def ensure_schema(self) -> None:
+        response = self._client.rpc("ensure_points_schema").execute()
         try:
-            self._conn.execute("BEGIN")
-            yield
-            self._conn.commit()
-        except Exception:
-            self._conn.rollback()
-            raise
+            self._unwrap(response, context="ensure_points_schema")
+        except DatabaseError as exc:
+            raise DatabaseError(
+                "ensure_points_schema failed. Run the SQL setup in "
+                "_docs/guide/deployment/railway.md."
+            ) from exc
 
-    def execute(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
-        cur = self._conn.cursor()
-        cur.execute(sql, tuple(params))
-        return cur
+    def ensure_user(self, user_id: int) -> None:
+        response = (
+            self._client.table("points")
+            .upsert({"user_id": user_id, "points": 0}, on_conflict="user_id")
+            .execute()
+        )
+        self._unwrap(response, context="ensure_user")
 
-    def executemany(self, sql: str, seq_of_params: Iterable[Iterable[Any]]) -> sqlite3.Cursor:
-        cur = self._conn.cursor()
-        cur.executemany(sql, [tuple(p) for p in seq_of_params])
-        return cur
+    def get_points(self, user_id: int) -> int | None:
+        response = (
+            self._client.table("points")
+            .select("points")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_points")
+        if not data:
+            return None
+        return int(data[0]["points"])
 
-    def fetchone(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Row | None:
-        return self.execute(sql, params).fetchone()
+    def add_points(self, user_id: int, delta: int) -> int:
+        response = self._client.rpc(
+            "add_points", {"p_user_id": user_id, "p_delta": delta}
+        ).execute()
+        data = self._unwrap(response, context="add_points")
+        value = self._extract_scalar(data)
+        return 0 if value is None else int(value)
 
-    def fetchall(self, sql: str, params: Iterable[Any] = ()) -> list[sqlite3.Row]:
-        return self.execute(sql, params).fetchall()
+    def top_rank(self, limit: int = 10) -> list[dict[str, Any]]:
+        response = (
+            self._client.table("points")
+            .select("user_id, points")
+            .order("points", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        data = self._unwrap(response, context="top_rank")
+        return [] if data is None else list(data)
 
-    def insert(
-        self,
-        table: str,
-        data: dict[str, Any],
-        on_conflict: str | None = None,
-    ) -> int:
-        columns = ", ".join(data.keys())
-        placeholders = ", ".join(["?"] * len(data))
-        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
-        if on_conflict:
-            sql = f"{sql} ON CONFLICT {on_conflict}"
-        cur = self.execute(sql, data.values())
-        self._conn.commit()
-        return cur.lastrowid
-
-    def update(
-        self,
-        table: str,
-        data: dict[str, Any],
-        where: str,
-        params: Iterable[Any] = (),
-    ) -> int:
-        set_clause = ", ".join([f"{k} = ?" for k in data.keys()])
-        sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
-        cur = self.execute(sql, [*data.values(), *params])
-        self._conn.commit()
-        return cur.rowcount
-
-    def delete(self, table: str, where: str, params: Iterable[Any] = ()) -> int:
-        sql = f"DELETE FROM {table} WHERE {where}"
-        cur = self.execute(sql, params)
-        self._conn.commit()
-        return cur.rowcount
-
-    def select(
-        self,
-        table: str,
-        columns: str = "*",
-        where: str | None = None,
-        params: Iterable[Any] = (),
-        order_by: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> list[sqlite3.Row]:
-        sql = f"SELECT {columns} FROM {table}"
-        if where:
-            sql += f" WHERE {where}"
-        if order_by:
-            sql += f" ORDER BY {order_by}"
-        if limit is not None:
-            sql += f" LIMIT {limit}"
-        if offset is not None:
-            sql += f" OFFSET {offset}"
-        return self.fetchall(sql, params)
+    def transfer(self, sender_id: int, recipient_id: int, points: int) -> bool:
+        if points <= 0:
+            return False
+        response = self._client.rpc(
+            "transfer_points",
+            {
+                "p_sender_id": sender_id,
+                "p_recipient_id": recipient_id,
+                "p_points": points,
+            },
+        ).execute()
+        data = self._unwrap(response, context="transfer_points")
+        value = self._extract_scalar(data)
+        return bool(value)
 
 
 class PointsRepository:
@@ -101,68 +104,22 @@ class PointsRepository:
         self._db = db
 
     def ensure_schema(self) -> None:
-        self._db.execute(
-            "CREATE TABLE IF NOT EXISTS points (user_id INTEGER PRIMARY KEY, points INTEGER)"
-        )
-        self._db._conn.commit()
+        self._db.ensure_schema()
 
     def ensure_user(self, user_id: int) -> None:
-        self._db.insert(
-            "points",
-            {"user_id": user_id, "points": 0},
-            on_conflict="(user_id) DO NOTHING",
-        )
+        self._db.ensure_user(user_id)
 
     def get_points(self, user_id: int) -> int | None:
-        row = self._db.fetchone(
-            "SELECT points FROM points WHERE user_id = ?",
-            (user_id,),
-        )
-        return None if row is None else int(row["points"])
+        return self._db.get_points(user_id)
 
     def add_points(self, user_id: int, delta: int) -> int:
-        with self._db.transaction():
-            self.ensure_user(user_id)
-            self._db.execute(
-                "UPDATE points SET points = points + ? WHERE user_id = ?",
-                (delta, user_id),
-            )
-            row = self._db.fetchone(
-                "SELECT points FROM points WHERE user_id = ?",
-                (user_id,),
-            )
-        return int(row["points"]) if row is not None else 0
+        return self._db.add_points(user_id, delta)
 
-    def top_rank(self, limit: int = 10) -> list[sqlite3.Row]:
-        return self._db.select(
-            "points",
-            columns="user_id, points",
-            order_by="points DESC",
-            limit=limit,
-        )
+    def top_rank(self, limit: int = 10) -> list[dict[str, Any]]:
+        return self._db.top_rank(limit)
 
     def transfer(self, sender_id: int, recipient_id: int, points: int) -> bool:
-        if points <= 0:
-            return False
-        with self._db.transaction():
-            self.ensure_user(sender_id)
-            self.ensure_user(recipient_id)
-            row = self._db.fetchone(
-                "SELECT points FROM points WHERE user_id = ?",
-                (sender_id,),
-            )
-            sender_points = 0 if row is None else int(row["points"])
-            if sender_points < points:
-                return False
-            self._db.execute(
-                "UPDATE points SET points = points - ? WHERE user_id = ?",
-                (points, sender_id),
-            )
-            self._db.execute(
-                "UPDATE points SET points = points + ? WHERE user_id = ?",
-                (points, recipient_id),
-            )
-        return True
+        return self._db.transfer(sender_id, recipient_id, points)
 
     def award_point_for_message(self, user_id: int) -> int:
         return self.add_points(user_id, 1)
@@ -170,7 +127,7 @@ class PointsRepository:
     def get_user_points(self, user_id: int) -> int | None:
         return self.get_points(user_id)
 
-    def get_top_rank(self, limit: int = 10) -> list[sqlite3.Row]:
+    def get_top_rank(self, limit: int = 10) -> list[dict[str, Any]]:
         return self.top_rank(limit)
 
     def send_points(self, sender_id: int, recipient_id: int, points: int) -> bool:

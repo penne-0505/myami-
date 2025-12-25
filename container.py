@@ -4,17 +4,17 @@ from client import BotClient, create_client
 from database import PointsRepository, Database
 from config import load_admin_ids, load_token
 from dotenv import load_dotenv
-from pathlib import Path
 from utils import _parse_admin_ids
 from dataclasses import dataclass
+from pathlib import Path
 import discord
 import os
 
 
 @dataclass(frozen=True, slots=True)
 class DBSettings:
-    db_path: str
-    timeout: float
+    supabase_url: str
+    service_role_key: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,26 +57,25 @@ def load_discord_settings(
 
 
 def load_db_settings(
-    raw_db_path: str | None = None, raw_timeout: str | None = None
+    raw_supabase_url: str | None = None, raw_service_role_key: str | None = None
 ) -> DBSettings:
-    db_path = raw_db_path if raw_db_path is not None else os.getenv("DS_DB_PATH")
-    db_path = db_path.strip() if db_path is not None else ""
-    if db_path == "":
-        db_path = "points.db"
+    supabase_url = (
+        raw_supabase_url if raw_supabase_url is not None else os.getenv("SUPABASE_URL")
+    )
+    supabase_url = supabase_url.strip() if supabase_url is not None else ""
+    if supabase_url == "":
+        raise ValueError("SUPABASE_URL is not provided.")
 
-    timeout_raw = raw_timeout if raw_timeout is not None else os.getenv("DS_DB_TIMEOUT")
-    timeout_raw = timeout_raw.strip() if timeout_raw is not None else ""
-    if timeout_raw == "":
-        timeout = 5.0
-    else:
-        try:
-            timeout = float(timeout_raw)
-        except ValueError as exc:
-            raise ValueError("DS_DB_TIMEOUT must be a float.") from exc
-        if timeout <= 0:
-            raise ValueError("DS_DB_TIMEOUT must be positive.")
+    service_role_key = (
+        raw_service_role_key
+        if raw_service_role_key is not None
+        else os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    )
+    service_role_key = service_role_key.strip() if service_role_key is not None else ""
+    if service_role_key == "":
+        raise ValueError("SUPABASE_SERVICE_ROLE_KEY is not provided.")
 
-    return DBSettings(db_path=db_path, timeout=timeout)
+    return DBSettings(supabase_url=supabase_url, service_role_key=service_role_key)
 
 
 def load_config(env_file: str | Path | None = None) -> AppConfig:
@@ -211,10 +210,10 @@ def register_commands(
 
 
 def create_bot_client(config: AppConfig) -> BotClient:
-    db_path = Path(config.db_settings.db_path)
-    if db_path.parent != Path("."):
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-    db = Database(db_path=str(db_path), timeout=config.db_settings.timeout)
+    db = Database(
+        url=config.db_settings.supabase_url,
+        service_role_key=config.db_settings.service_role_key,
+    )
     points_repo = PointsRepository(db)
     points_repo.ensure_schema()
     client = create_client(points_repo=points_repo)

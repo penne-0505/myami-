@@ -3,7 +3,7 @@ title: App Container Reference
 status: active
 draft_status: n/a
 created_at: 2025-12-24
-updated_at: 2025-12-24
+updated_at: 2025-12-26
 references:
   - _docs/reference/database/points_repository.md
   - _docs/reference/app/bot_client.md
@@ -20,16 +20,16 @@ related_prs: []
 - `DS_ADMIN_IDS` (必須): 管理者 ID の配列形式文字列 (例: `[123, 456]`)。
 
 ### Database
-- `DS_DB_PATH` (任意): SQLite のDBファイルパス。未指定時は `points.db`。
-- `DS_DB_TIMEOUT` (任意): SQLite 接続タイムアウト秒。未指定時は `5.0`。
+- `SUPABASE_URL` (必須): Supabase の Project URL。
+- `SUPABASE_SERVICE_ROLE_KEY` (必須): Supabase の service role キー。
 
 ## Behavior
-- `DS_DB_PATH` にディレクトリを含む場合、起動時に親ディレクトリを自動作成する。
+- Supabase への接続情報が不足している場合は起動時にエラーとなる。
 
 ## API
 - `load_discord_settings(raw_token: str | None = None, raw_admin_ids: str | None = None)` -> `DiscordSettings`
   - 未指定の場合は環境変数から取得する。
-- `load_db_settings(raw_db_path: str | None = None, raw_timeout: str | None = None)` -> `DBSettings`
+- `load_db_settings(raw_supabase_url: str | None = None, raw_service_role_key: str | None = None)` -> `DBSettings`
   - 未指定の場合は環境変数から取得する。
 - `load_config(env_file: str | Path | None = None)` -> `AppConfig`
   - `.env` を読み込んだ上でアプリ全体の設定を組み立てる。
