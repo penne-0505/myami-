@@ -7,6 +7,18 @@ create table if not exists public.point_remove_permissions (
   user_id bigint primary key
 );
 
+create table if not exists public.clan_register_settings (
+  guild_id bigint primary key,
+  channel_id bigint not null
+);
+
+create table if not exists public.role_buy_settings (
+  guild_id bigint not null,
+  role_id bigint not null,
+  price integer not null,
+  primary key (guild_id, role_id)
+);
+
 create or replace function public.ensure_points_schema()
 returns void
 language plpgsql
@@ -18,6 +30,16 @@ begin
   );
   create table if not exists public.point_remove_permissions (
     user_id bigint primary key
+  );
+  create table if not exists public.clan_register_settings (
+    guild_id bigint primary key,
+    channel_id bigint not null
+  );
+  create table if not exists public.role_buy_settings (
+    guild_id bigint not null,
+    role_id bigint not null,
+    price integer not null,
+    primary key (guild_id, role_id)
   );
 end;
 $$;

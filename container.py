@@ -231,6 +231,169 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
         )
         await interaction.response.send_message(embed=embed)
 
+    @tree.command(
+        name="clan-register",
+        description="クラン登録を申請します。",
+    )
+    async def clan_register_command(
+        interaction: discord.Interaction, clan_name: str
+    ) -> None:
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー内で使用してください。")
+            )
+            return
+        channel_id = points_repo.get_clan_register_channel(interaction.guild.id)
+        if channel_id is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("通知先チャンネルが未設定です。")
+            )
+            return
+        channel = await _fetch_text_channel(
+            client, guild=interaction.guild, channel_id=channel_id
+        )
+        if channel is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("通知先チャンネルが見つかりません。")
+            )
+            return
+        embed = discord.Embed(
+            title="**クラン登録申請**",
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(name="クラン名", value=clan_name, inline=False)
+        embed.add_field(name="代表者", value=interaction.user.mention, inline=False)
+        embed.add_field(name="サーバー", value=interaction.guild.name, inline=False)
+        await channel.send(embed=embed)
+        await interaction.response.send_message("申請を送信しました。")
+
+    @tree.command(
+        name="clan-register-channel",
+        description="クラン登録申請の通知先チャンネルを設定します（サーバー管理者のみ）",
+    )
+    async def clan_register_channel_command(
+        interaction: discord.Interaction, channel: discord.TextChannel
+    ) -> None:
+        if not _is_guild_admin(interaction):
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー管理者のみ実行できます。")
+            )
+            return
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー内で使用してください。")
+            )
+            return
+        if channel.guild.id != interaction.guild.id:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("同じサーバーのチャンネルを指定してください。")
+            )
+            return
+        points_repo.set_clan_register_channel(interaction.guild.id, channel.id)
+        embed = discord.Embed(
+            title="**クラン登録通知チャンネルを設定しました**",
+            description=f"**通知先: {channel.mention}**",
+            color=discord.Color.green(),
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @tree.command(
+        name="role-buy-register",
+        description="購入可能ロールと価格を登録します（サーバー管理者のみ）",
+    )
+    async def role_buy_register_command(
+        interaction: discord.Interaction, role: discord.Role, price: int
+    ) -> None:
+        if not _is_guild_admin(interaction):
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー管理者のみ実行できます。")
+            )
+            return
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー内で使用してください。")
+            )
+            return
+        if role.guild.id != interaction.guild.id:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("同じサーバーのロールを指定してください。")
+            )
+            return
+        if price <= 0:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("価格は1以上で指定してください。")
+            )
+            return
+        points_repo.set_role_buy_price(interaction.guild.id, role.id, price)
+        embed = discord.Embed(
+            title="**ロール購入を登録しました**",
+            description=f"**対象: {role.mention} / 価格: {price}ポイント**",
+            color=discord.Color.green(),
+        )
+        await interaction.response.send_message(embed=embed)
+
+    @tree.command(name="role-buy", description="ロールを購入します。")
+    async def role_buy_command(
+        interaction: discord.Interaction, role: discord.Role
+    ) -> None:
+        if interaction.guild is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー内で使用してください。")
+            )
+            return
+        member = interaction.user
+        if not isinstance(member, discord.Member):
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー内で使用してください。")
+            )
+            return
+        if role.guild.id != interaction.guild.id:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("同じサーバーのロールを指定してください。")
+            )
+            return
+        if role in member.roles:
+            embed = discord.Embed(
+                title="**購入済み**",
+                description="**既にロールを所持しています。**",
+                color=discord.Color.blue(),
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+        price = points_repo.get_role_buy_price(interaction.guild.id, role.id)
+        if price is None:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("このロールは購入対象ではありません。")
+            )
+            return
+        points = points_repo.get_user_points(member.id)
+        if points is None or points < price:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("ポイントが足りません。")
+            )
+            return
+        points_repo.add_points(member.id, -price)
+        try:
+            await member.add_roles(role, reason="role buy")
+        except discord.Forbidden:
+            points_repo.add_points(member.id, price)
+            await interaction.response.send_message(
+                embed=_permission_error_embed("ロールを付与できませんでした。")
+            )
+            return
+        except discord.HTTPException:
+            points_repo.add_points(member.id, price)
+            await interaction.response.send_message(
+                embed=_permission_error_embed("ロール付与に失敗しました。")
+            )
+            return
+        embed = discord.Embed(
+            title="**購入完了**",
+            description=f"**{role.mention} を付与しました。**",
+            color=discord.Color.green(),
+        )
+        await interaction.response.send_message(embed=embed)
+
 
 def create_bot_client(config: AppConfig) -> BotClient:
     db = Database(
@@ -268,3 +431,20 @@ def _permission_error_embed(message: str) -> discord.Embed:
         description=f"**{message}**",
         color=0xFF0000,
     )
+
+
+async def _fetch_text_channel(
+    client: BotClient, *, guild: discord.Guild, channel_id: int
+) -> discord.TextChannel | None:
+    channel = guild.get_channel(channel_id)
+    if isinstance(channel, discord.TextChannel):
+        return channel
+    try:
+        fetched = await client.fetch_channel(channel_id)
+    except discord.NotFound:
+        return None
+    except discord.HTTPException:
+        return None
+    if isinstance(fetched, discord.TextChannel) and fetched.guild.id == guild.id:
+        return fetched
+    return None

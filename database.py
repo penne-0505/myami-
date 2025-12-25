@@ -127,6 +127,52 @@ class Database:
         data = self._unwrap(response, context="revoke_remove_permission")
         return bool(data)
 
+    def set_clan_register_channel(self, guild_id: int, channel_id: int) -> None:
+        response = (
+            self._client.table("clan_register_settings")
+            .upsert({"guild_id": guild_id, "channel_id": channel_id}, on_conflict="guild_id")
+            .execute()
+        )
+        self._unwrap(response, context="set_clan_register_channel")
+
+    def get_clan_register_channel(self, guild_id: int) -> int | None:
+        response = (
+            self._client.table("clan_register_settings")
+            .select("channel_id")
+            .eq("guild_id", guild_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_clan_register_channel")
+        if not data:
+            return None
+        return int(data[0]["channel_id"])
+
+    def set_role_buy_price(self, guild_id: int, role_id: int, price: int) -> None:
+        response = (
+            self._client.table("role_buy_settings")
+            .upsert(
+                {"guild_id": guild_id, "role_id": role_id, "price": price},
+                on_conflict="guild_id,role_id",
+            )
+            .execute()
+        )
+        self._unwrap(response, context="set_role_buy_price")
+
+    def get_role_buy_price(self, guild_id: int, role_id: int) -> int | None:
+        response = (
+            self._client.table("role_buy_settings")
+            .select("price")
+            .eq("guild_id", guild_id)
+            .eq("role_id", role_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_role_buy_price")
+        if not data:
+            return None
+        return int(data[0]["price"])
+
 
 class PointsRepository:
     def __init__(self, db: Database):
@@ -173,3 +219,15 @@ class PointsRepository:
 
     def revoke_remove_permission(self, user_id: int) -> bool:
         return self._db.revoke_remove_permission(user_id)
+
+    def set_clan_register_channel(self, guild_id: int, channel_id: int) -> None:
+        self._db.set_clan_register_channel(guild_id, channel_id)
+
+    def get_clan_register_channel(self, guild_id: int) -> int | None:
+        return self._db.get_clan_register_channel(guild_id)
+
+    def set_role_buy_price(self, guild_id: int, role_id: int, price: int) -> None:
+        self._db.set_role_buy_price(guild_id, role_id, price)
+
+    def get_role_buy_price(self, guild_id: int, role_id: int) -> int | None:
+        return self._db.get_role_buy_price(guild_id, role_id)

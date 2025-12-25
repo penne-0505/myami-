@@ -16,6 +16,8 @@ related_prs: []
 - Supabase では RPC 関数 `ensure_points_schema` / `add_points` / `transfer_points` を利用する。
 - これらの関数は `_docs/guide/deployment/railway.md` の SQL セクションで作成する。
 - `point_remove_permissions` テーブルでポイント剥奪権限を管理する。
+- `clan_register_settings` テーブルでクラン登録通知チャンネルを管理する。
+- `role_buy_settings` テーブルでロール購入の価格設定を管理する。
 
 ## API
 - `ensure_schema()` -> None: points テーブルを作成する。
@@ -27,6 +29,10 @@ related_prs: []
 - `has_remove_permission(user_id: int)` -> bool: ポイント剥奪権限を持つか判定する。
 - `grant_remove_permission(user_id: int)` -> None: ポイント剥奪権限を付与する。
 - `revoke_remove_permission(user_id: int)` -> bool: ポイント剥奪権限を解除する。
+- `set_clan_register_channel(guild_id: int, channel_id: int)` -> None: クラン登録通知チャンネルを設定する。
+- `get_clan_register_channel(guild_id: int)` -> int | None: クラン登録通知チャンネルを取得する。
+- `set_role_buy_price(guild_id: int, role_id: int, price: int)` -> None: ロール購入の価格を設定する。
+- `get_role_buy_price(guild_id: int, role_id: int)` -> int | None: ロール購入の価格を取得する。
 
 ## Usage
 アプリ起動時に `ensure_schema()` を実行し、各コマンドでは `PointsRepository` のユースケースメソッドを呼び出す。

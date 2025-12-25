@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 5` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 6` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -204,6 +204,20 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 ---
 
 ## Backlog
+
+- **Title**: [Feat] ポイント賭けゲームの追加
+- **ID**: Core-Feat-5
+- **Priority**: P1
+- **Size**: L
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: テキストコマンドで5種類のゲームを実行し、掛け金に応じたポイントの増減が行われる。
+- **Steps**:
+  1. [ ] Plan の "Requirements" と "Open Questions" を確定させる
+  2. [ ] Plan の "Tasks" に従いコマンド入力とポイント授受を実装する
+  3. [ ] Plan の "Test Plan" に従い動作確認を行う
+- **Description**: スロット/おみくじ/hit&blow/じゃんけん/コイントスをポイント賭けで遊べるようにする。
+- **Plan**: _docs/plan/Core/point-games.md
 
 ---
 

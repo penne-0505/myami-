@@ -26,6 +26,10 @@ related_prs: []
 - Supabase への接続情報が不足している場合は起動時にエラーとなる。
 - `/remove` はサーバー管理権限保持者、または `point_remove_permissions` に登録済みのユーザーのみ実行できる。
 - `/permit-remove` はサーバー管理権限保持者のみ実行できる。
+- `/clan-register` は設定済みの通知チャンネルへ申請内容を送信する。
+- `/clan-register-channel` はサーバー管理権限保持者のみ実行できる。
+- `/role-buy-register` はサーバー管理権限保持者のみ実行できる。
+- `/role-buy` は登録済みの購入対象ロールをポイント消費して即時付与する。
 
 ## API
 - `load_discord_settings(raw_token: str | None = None)` -> `DiscordSettings`
@@ -35,7 +39,7 @@ related_prs: []
 - `load_config(env_file: str | Path | None = None)` -> `AppConfig`
   - `.env` を読み込んだ上でアプリ全体の設定を組み立てる。
 - `register_commands(client: BotClient, points_repo: PointsRepository)` -> `None`
-  - `/point` `/rank` `/send` `/remove` `/permit-remove` コマンドを登録する。
+  - `/point` `/rank` `/send` `/remove` `/permit-remove` `/clan-register` `/clan-register-channel` `/role-buy-register` `/role-buy` コマンドを登録する。
 - `create_bot_client(config: AppConfig)` -> `BotClient`
   - DB初期化、ポイントスキーマ作成、コマンド登録まで行う。
 
