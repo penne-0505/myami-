@@ -205,20 +205,6 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 
 ## Backlog
 
-- **Title**: [Feat] ポイント賭けゲームの追加
-- **ID**: Core-Feat-5
-- **Priority**: P1
-- **Size**: L
-- **Area**: Core
-- **Dependencies**: []
-- **Goal**: テキストコマンドで5種類のゲームを実行し、掛け金に応じたポイントの増減が行われる。
-- **Steps**:
-  1. [ ] Plan の "Requirements" と "Open Questions" を確定させる
-  2. [ ] Plan の "Tasks" に従いコマンド入力とポイント授受を実装する
-  3. [ ] Plan の "Test Plan" に従い動作確認を行う
-- **Description**: スロット/おみくじ/hit&blow/じゃんけん/コイントスをポイント賭けで遊べるようにする。
-- **Plan**: _docs/plan/Core/point-games.md
-
 ---
 
 ## Ready
@@ -240,3 +226,17 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
   3. [ ] Plan の "Test Plan" に従い動作確認を行う
 - **Description**: VC接続中に一定時間ごとにポイントが加算される仕組みを追加する。
 - **Plan**: _docs/plan/Core/voice-pointing.md
+
+- **Title**: [Feat] ポイント賭けゲームの追加
+- **ID**: Core-Feat-5
+- **Priority**: P1
+- **Size**: L
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: テキストコマンドで5種類のゲームを実行し、掛け金に応じたポイントの増減が行われる。
+- **Steps**:
+  1. [x] Plan の "Requirements" と "Open Questions" を確定させる
+  2. [x] Plan の "Tasks" に従いコマンド入力とポイント授受を実装する
+  3. [ ] Plan の "Test Plan" に従い動作確認を行う
+- **Description**: スロット/おみくじ/hit&blow/じゃんけん/コイントスをポイント賭けで遊べるようにする。
+- **Plan**: _docs/plan/Core/point-games.md
