@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 4` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 5` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -213,17 +213,16 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 
 ## In Progress
 
-- **Title**: [Refactor] Migrate DB to Supabase
-- **ID**: Core-Refactor-3
+- **Title**: [Feat] VC接続時間に応じたポイント付与
+- **ID**: Core-Feat-4
 - **Priority**: P1
 - **Size**: M
 - **Area**: Core
 - **Dependencies**: []
-- **Goal**: SQLite を Supabase(PostgreSQL) に移行し、service role で運用できる状態にする（既存データ移行は不要）。
+- **Goal**: VCに接続しているユーザーに対し、時間経過でポイントが付与される。
 - **Steps**:
-  1. [ ] Plan の "Scope" と "Requirements" に沿って Supabase 接続方式と環境変数を確定する
-  2. [ ] Plan の "Tasks" に従い `Database` 実装と `container.py` の設定を更新する
-  3. [ ] Plan の "Test Plan" に沿って主要コマンドの動作を確認する
-  4. [ ] Plan の "Deployment / Rollout" に沿ってデプロイ手順とロールバック方針を整備する
-- **Description**: SQLite 依存を排除し、Supabase(PostgreSQL) をバックエンドにするための移行タスク。
-- **Plan**: `_docs/plan/Core/supabase-db-migration.md`
+  1. [ ] Plan の "Requirements" に従いVCポイント付与の条件を実装
+  2. [ ] Plan の "Tasks" に従い `client.py` のロジックを追加
+  3. [ ] Plan の "Test Plan" に従い動作確認を行う
+- **Description**: VC接続中に一定時間ごとにポイントが加算される仕組みを追加する。
+- **Plan**: _docs/plan/Core/voice-pointing.md
