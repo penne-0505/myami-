@@ -1,8 +1,6 @@
 from dotenv import load_dotenv
 import os
 
-from utils import _parse_admin_ids
-
 
 def load_token(env_file: str | None = None) -> str:
     """
@@ -21,11 +19,3 @@ def load_token(env_file: str | None = None) -> str:
         raise ValueError("DS_SECRET_TOKEN is not set in the environment variables.")
     return env_content
 
-
-def load_admin_ids(env_file: str | None = None) -> set[int]:
-    load_dotenv(env_file)
-
-    raw_ids = os.getenv("DS_ADMIN_IDS")
-    if raw_ids is None:
-        raise ValueError("DS_ADMIN_IDS is not set in the environment variables.")
-    return _parse_admin_ids(raw_ids)

@@ -98,6 +98,35 @@ class Database:
         value = self._extract_scalar(data)
         return bool(value)
 
+    def has_remove_permission(self, user_id: int) -> bool:
+        response = (
+            self._client.table("point_remove_permissions")
+            .select("user_id")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="has_remove_permission")
+        return bool(data)
+
+    def grant_remove_permission(self, user_id: int) -> None:
+        response = (
+            self._client.table("point_remove_permissions")
+            .upsert({"user_id": user_id}, on_conflict="user_id")
+            .execute()
+        )
+        self._unwrap(response, context="grant_remove_permission")
+
+    def revoke_remove_permission(self, user_id: int) -> bool:
+        response = (
+            self._client.table("point_remove_permissions")
+            .delete()
+            .eq("user_id", user_id)
+            .execute()
+        )
+        data = self._unwrap(response, context="revoke_remove_permission")
+        return bool(data)
+
 
 class PointsRepository:
     def __init__(self, db: Database):
@@ -135,3 +164,12 @@ class PointsRepository:
 
     def remove_points(self, admin_id: int, target_id: int, points: int) -> bool:
         return self.transfer(target_id, admin_id, points)
+
+    def has_remove_permission(self, user_id: int) -> bool:
+        return self._db.has_remove_permission(user_id)
+
+    def grant_remove_permission(self, user_id: int) -> None:
+        self._db.grant_remove_permission(user_id)
+
+    def revoke_remove_permission(self, user_id: int) -> bool:
+        return self._db.revoke_remove_permission(user_id)

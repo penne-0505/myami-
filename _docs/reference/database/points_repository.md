@@ -15,6 +15,7 @@ related_prs: []
 ## Notes
 - Supabase では RPC 関数 `ensure_points_schema` / `add_points` / `transfer_points` を利用する。
 - これらの関数は `_docs/guide/deployment/railway.md` の SQL セクションで作成する。
+- `point_remove_permissions` テーブルでポイント剥奪権限を管理する。
 
 ## API
 - `ensure_schema()` -> None: points テーブルを作成する。
@@ -23,6 +24,9 @@ related_prs: []
 - `get_top_rank(limit: int = 10)` -> list[dict]: ランキング上位を返す。
 - `send_points(sender_id: int, recipient_id: int, points: int)` -> bool: 送信者から受信者へポイントを移動する。
 - `remove_points(admin_id: int, target_id: int, points: int)` -> bool: 対象ユーザーから管理者へポイントを移動する。
+- `has_remove_permission(user_id: int)` -> bool: ポイント剥奪権限を持つか判定する。
+- `grant_remove_permission(user_id: int)` -> None: ポイント剥奪権限を付与する。
+- `revoke_remove_permission(user_id: int)` -> bool: ポイント剥奪権限を解除する。
 
 ## Usage
 アプリ起動時に `ensure_schema()` を実行し、各コマンドでは `PointsRepository` のユースケースメソッドを呼び出す。

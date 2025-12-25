@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from client import BotClient, create_client
 from database import PointsRepository, Database
-from config import load_admin_ids, load_token
+from config import load_token
 from dotenv import load_dotenv
-from utils import _parse_admin_ids
 from dataclasses import dataclass
 from pathlib import Path
 import discord
@@ -20,7 +19,6 @@ class DBSettings:
 @dataclass(frozen=True, slots=True)
 class DiscordSettings:
     secret_token: str
-    admin_ids: set[int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,21 +37,13 @@ def __load_env_file(env_file: str | Path | None = None) -> None:
 
 
 def load_discord_settings(
-    raw_token: str | None = None, raw_admin_ids: str | None = None
+    raw_token: str | None = None,
 ) -> DiscordSettings:
     token = raw_token if raw_token is not None else load_token()
     if token is None or token.strip() == "":
         raise ValueError("Discord secret token is not provided.")
     secret_token = token.strip()
-
-    if raw_admin_ids is None:
-        admin_ids = load_admin_ids()
-    else:
-        if raw_admin_ids.strip() == "":
-            raise ValueError("Discord admin IDs are not provided.")
-        admin_ids = _parse_admin_ids(raw_admin_ids)
-
-    return DiscordSettings(secret_token=secret_token, admin_ids=admin_ids)
+    return DiscordSettings(secret_token=secret_token)
 
 
 def load_db_settings(
@@ -85,9 +75,7 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
     return AppConfig(db_settings=db_settings, discord_settings=discord_settings)
 
 
-def register_commands(
-    client: BotClient, *, points_repo: PointsRepository, admin_ids: set[int]
-) -> None:
+def register_commands(client: BotClient, *, points_repo: PointsRepository) -> None:
     tree = client.tree
 
     @tree.command(name="point", description="あなたの現在のポイントを表示します")
@@ -162,13 +150,10 @@ def register_commands(
                 "**ポイントは1以上で指定してください。**"
             )
             return
-        if interaction.user.id not in admin_ids:
-            embed = discord.Embed(
-                title="**エラー!**",
-                description="**特定のユーザーのみ使用できます。**",
-                color=0xFF0000,
+        if not _has_remove_permission(interaction, points_repo):
+            await interaction.response.send_message(
+                embed=_permission_error_embed("ポイント剥奪権限がありません。")
             )
-            await interaction.response.send_message(embed=embed)
             return
         sender_id = interaction.user.id
         recipient_id = user.id
@@ -208,6 +193,44 @@ def register_commands(
         )
         await interaction.response.send_message(embed=embed)
 
+    @tree.command(
+        name="permit-remove",
+        description="ポイント剥奪を許可/解除します（サーバー管理者のみ）",
+    )
+    async def permit_remove_command(
+        interaction: discord.Interaction, user: discord.Member, allowed: bool
+    ) -> None:
+        if not _is_guild_admin(interaction):
+            await interaction.response.send_message(
+                embed=_permission_error_embed("サーバー管理者のみ実行できます。")
+            )
+            return
+        target_id = user.id
+        if allowed:
+            points_repo.grant_remove_permission(target_id)
+            embed = discord.Embed(
+                title="**ポイント剥奪権限を付与しました**",
+                description=f"**{user.display_name}さんに権限を付与しました。**",
+                color=discord.Color.green(),
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+        removed = points_repo.revoke_remove_permission(target_id)
+        if not removed:
+            embed = discord.Embed(
+                title="**エラー!**",
+                description="**対象ユーザーは権限を持っていません。**",
+                color=0xFF0000,
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+        embed = discord.Embed(
+            title="**ポイント剥奪権限を解除しました**",
+            description=f"**{user.display_name}さんの権限を解除しました。**",
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=embed)
+
 
 def create_bot_client(config: AppConfig) -> BotClient:
     db = Database(
@@ -217,7 +240,31 @@ def create_bot_client(config: AppConfig) -> BotClient:
     points_repo = PointsRepository(db)
     points_repo.ensure_schema()
     client = create_client(points_repo=points_repo)
-    register_commands(
-        client, points_repo=points_repo, admin_ids=config.discord_settings.admin_ids
-    )
+    register_commands(client, points_repo=points_repo)
     return client
+
+
+def _is_guild_admin(interaction: discord.Interaction) -> bool:
+    if interaction.guild is None:
+        return False
+    user = interaction.user
+    if not isinstance(user, discord.Member):
+        return False
+    perms = user.guild_permissions
+    return perms.administrator or perms.manage_guild
+
+
+def _has_remove_permission(
+    interaction: discord.Interaction, points_repo: PointsRepository
+) -> bool:
+    if _is_guild_admin(interaction):
+        return True
+    return points_repo.has_remove_permission(interaction.user.id)
+
+
+def _permission_error_embed(message: str) -> discord.Embed:
+    return discord.Embed(
+        title="**エラー!**",
+        description=f"**{message}**",
+        color=0xFF0000,
+    )

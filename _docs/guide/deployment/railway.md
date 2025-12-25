@@ -26,7 +26,6 @@ related_prs: []
 2. サービスの Variables タブで環境変数を追加する。
    - 必須
      - `DS_SECRET_TOKEN`: Discord Bot トークン
-     - `DS_ADMIN_IDS`: 管理者 ID の配列形式文字列（例: `[123, 456]`）
      - `SUPABASE_URL`: Supabase Project URL
      - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role キー
 3. Start Command を `python main.py` に設定する。

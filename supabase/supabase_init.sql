@@ -3,6 +3,10 @@ create table if not exists public.points (
   points integer not null default 0
 );
 
+create table if not exists public.point_remove_permissions (
+  user_id bigint primary key
+);
+
 create or replace function public.ensure_points_schema()
 returns void
 language plpgsql
@@ -11,6 +15,9 @@ begin
   create table if not exists public.points (
     user_id bigint primary key,
     points integer not null default 0
+  );
+  create table if not exists public.point_remove_permissions (
+    user_id bigint primary key
   );
 end;
 $$;
