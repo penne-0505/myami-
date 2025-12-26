@@ -28,12 +28,12 @@ def create_bot_client(config: AppConfig) -> BotClient:
         print("[startup] DB connection OK")
     else:
         print("[startup] DB schema missing. Running setup.")
-    try:
-        points_repo.ensure_schema()
-    except DatabaseError as exc:
-        print(f"[startup] DB schema setup failed: {exc}")
-        raise
-    print("[startup] DB schema OK")
+        try:
+            points_repo.ensure_schema()
+        except DatabaseError as exc:
+            print(f"[startup] DB schema setup failed: {exc}")
+            raise
+        print("[startup] DB schema OK")
     client = create_client(points_repo=points_repo)
     points_service = PointsService(points_repo)
     register_commands(client, points_service=points_service)
