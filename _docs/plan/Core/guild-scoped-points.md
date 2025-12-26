@@ -6,7 +6,7 @@ created_at: 2025-12-26
 updated_at: 2025-12-26
 references:
   - _docs/reference/database/points_repository.md
-  - _docs/reference/app/container.md
+  - _docs/reference/app/facade.md
   - _docs/reference/app/bot_client.md
   - _docs/guide/deployment/railway.md
 related_issues: []
@@ -49,11 +49,11 @@ related_prs: []
   - `Database` の `get_points/add_points/transfer/top_rank/ensure_user` を `guild_id` 引数対応。
   - `PointsRepository` を guild スコープ API に更新。
   - `bot/client.py` のポイント操作（メッセージ/VC/ゲーム）を guild ID 付きで呼び出す。
-  - `app/container.py` のスラッシュコマンドを guild 依存の入力検証と DB 呼び出しに更新。
+  - `app/facade.py` のスラッシュコマンドを guild 依存の入力検証と DB 呼び出しに更新。
   - `permit-remove` の権限判定を guild 単位に変更。
 - Docs
   - `_docs/reference/database/points_repository.md` を API 変更に合わせて更新。
-  - `_docs/reference/app/container.md` / `_docs/reference/app/bot_client.md` の仕様を guild スコープに更新。
+  - `_docs/reference/app/facade.md` / `_docs/reference/app/bot_client.md` の仕様を guild スコープに更新。
   - `_docs/guide/deployment/railway.md` の SQL セットアップ説明を更新。
 
 ## Test Plan

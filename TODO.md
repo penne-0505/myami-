@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 8` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 9` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -214,8 +214,8 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 - **Goal**: 起動時にDB接続確認が行われ、失敗時はエラーハンドリングとログ出力が行われる。
 - **Steps**:
   1. [ ] `service/database.py` に接続確認用メソッドと例外情報の整形出力を追加
-  2. [ ] `app/container.py` で起動時のDB確認フローとログ出力を実装
-  3. [ ] 起動時ログの仕様を `_docs/reference/app/container.md` と `_docs/reference/app/bot_client.md` に反映
+  2. [ ] `app/facade.py` で起動時のDB確認フローとログ出力を実装
+  3. [ ] 起動時ログの仕様を `_docs/reference/app/facade.md` と `_docs/reference/app/bot_client.md` に反映
   4. [ ] 失敗時のガイダンスを `_docs/guide/deployment/railway.md` に追記
 - **Description**: Bot 起動時にDB接続の健全性確認とログ出力を行い、失敗時の原因把握を容易にする。
 - **Plan**: None
@@ -257,6 +257,21 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
   3. [ ] Plan の "Test Plan" に従い動作確認を行う
 - **Description**: VC接続中に一定時間ごとにポイントが加算される仕組みを追加する。
 - **Plan**: _docs/plan/Core/voice-pointing.md
+
+- **Title**: [Refactor] Split command definitions and service logic
+- **ID**: Core-Refactor-8
+- **Priority**: P2
+- **Size**: S
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: Discord コマンド層が入力検証とレスポンス生成に集中し、ポイント関連のユースケース実行はサービス層へ分離されている。
+- **Steps**:
+  1. [ ] `app/command_registry.py` のコマンド処理フローを棚卸しし、移譲対象のルールを洗い出す
+  2. [ ] `service/points_service.py`（仮）にユースケース実装を集約し、戻り値のResult型を定義する
+  3. [ ] コマンド層からサービス層へ呼び出しを差し替え、レスポンス生成に専念させる
+  4. [ ] 参照ドキュメント（`_docs/reference/app/facade.md` 等）を更新する
+- **Description**: コマンド定義とサービス的ロジックの責務を分離し、保守性とテスト容易性を向上させる。
+- **Plan**: None
 
 - **Title**: [Feat] ポイント賭けゲームの追加
 - **ID**: Core-Feat-5

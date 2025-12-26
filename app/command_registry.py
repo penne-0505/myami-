@@ -1,83 +1,22 @@
 from __future__ import annotations
 
-from bot.client import BotClient, create_client
-from service.database import Database, DatabaseError
-from app.config import load_token
-from dotenv import load_dotenv
-from dataclasses import dataclass
-from pathlib import Path
 import discord
-import os
 
-from service.repository import PointsRepository
-
-
-@dataclass(frozen=True, slots=True)
-class DBSettings:
-    supabase_url: str
-    service_role_key: str
-
-
-@dataclass(frozen=True, slots=True)
-class DiscordSettings:
-    secret_token: str
-
-
-@dataclass(frozen=True, slots=True)
-class AppConfig:
-    db_settings: DBSettings
-    discord_settings: DiscordSettings
+from bot.client import BotClient
+from service.points_service import (
+    InsufficientPointsError,
+    InvalidPointsError,
+    MissingClanRegisterChannelError,
+    PermissionDeniedError,
+    PermissionNotGrantedError,
+    PointsService,
+    PointsServiceError,
+    RoleNotForSaleError,
+    TargetHasNoPointsError,
+)
 
 
-def __load_env_file(env_file: str | Path | None = None) -> None:
-    if env_file is None:
-        load_dotenv()
-    else:
-        path = Path(env_file)
-        load_dotenv(dotenv_path=path)
-    return
-
-
-def load_discord_settings(
-    raw_token: str | None = None,
-) -> DiscordSettings:
-    token = raw_token if raw_token is not None else load_token()
-    if token is None or token.strip() == "":
-        raise ValueError("Discord secret token is not provided.")
-    secret_token = token.strip()
-    return DiscordSettings(secret_token=secret_token)
-
-
-def load_db_settings(
-    raw_supabase_url: str | None = None, raw_service_role_key: str | None = None
-) -> DBSettings:
-    supabase_url = (
-        raw_supabase_url if raw_supabase_url is not None else os.getenv("SUPABASE_URL")
-    )
-    supabase_url = supabase_url.strip() if supabase_url is not None else ""
-    if supabase_url == "":
-        raise ValueError("SUPABASE_URL is not provided.")
-
-    service_role_key = (
-        raw_service_role_key
-        if raw_service_role_key is not None
-        else os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    )
-    service_role_key = service_role_key.strip() if service_role_key is not None else ""
-    if service_role_key == "":
-        raise ValueError("SUPABASE_SERVICE_ROLE_KEY is not provided.")
-
-    return DBSettings(supabase_url=supabase_url, service_role_key=service_role_key)
-
-
-def load_config(env_file: str | Path | None = None) -> AppConfig:
-    __load_env_file(env_file)
-    discord_settings = load_discord_settings()
-    db_settings = load_db_settings()
-    return AppConfig(db_settings=db_settings, discord_settings=discord_settings)
-
-
-def register_commands(client: BotClient, *, points_repo: PointsRepository) -> None:
+def register_commands(client: BotClient, *, points_service: PointsService) -> None:
     tree = client.tree
 
     @tree.command(name="point", description="あなたの現在のポイントを表示します")
@@ -88,7 +27,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             )
             return
         user_id = interaction.user.id
-        points = points_repo.get_user_points(interaction.guild.id, user_id)
+        points = points_service.get_user_points(interaction.guild.id, user_id)
         if points is None:
             await interaction.response.send_message("まだポイントがありません。")
             return
@@ -106,7 +45,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
-        results = points_repo.get_top_rank(interaction.guild.id, 10)
+        results = points_service.get_top_rank(interaction.guild.id, 10)
         if not results:
             await interaction.response.send_message("まだランキングがありません。")
             return
@@ -146,10 +85,11 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             return
         sender_id = interaction.user.id
         recipient_id = user.id
-        success = points_repo.send_points(
-            interaction.guild.id, sender_id, recipient_id, points
-        )
-        if not success:
+        try:
+            points_service.send_points(
+                interaction.guild.id, sender_id, recipient_id, points
+            )
+        except InsufficientPointsError:
             await interaction.response.send_message("**ポイントが足りません。**")
             return
         embed = discord.Embed(
@@ -175,17 +115,22 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
                 "**ポイントは1以上で指定してください。**"
             )
             return
-        if not _has_remove_permission(interaction, points_repo):
+        sender_id = interaction.user.id
+        recipient_id = user.id
+        try:
+            points_service.remove_points(
+                interaction.guild.id,
+                sender_id,
+                recipient_id,
+                points,
+                is_admin=_is_guild_admin(interaction),
+            )
+        except PermissionDeniedError:
             await interaction.response.send_message(
                 embed=_permission_error_embed("ポイント剥奪権限がありません。")
             )
             return
-        sender_id = interaction.user.id
-        recipient_id = user.id
-        recipient_points = points_repo.get_user_points(
-            interaction.guild.id, recipient_id
-        )
-        if recipient_points is None:
+        except TargetHasNoPointsError:
             embed = discord.Embed(
                 title="**エラー!**",
                 description=f"**{user.display_name}さんはまだポイントを持っていません！**",
@@ -193,7 +138,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             )
             await interaction.response.send_message(embed=embed)
             return
-        if recipient_points < points:
+        except InsufficientPointsError:
             embed = discord.Embed(
                 title="**エラー!**",
                 description=f"**{user.display_name}さんは{points}ポイント持っていません！**",
@@ -201,10 +146,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             )
             await interaction.response.send_message(embed=embed)
             return
-        success = points_repo.remove_points(
-            interaction.guild.id, sender_id, recipient_id, points
-        )
-        if not success:
+        except PointsServiceError:
             embed = discord.Embed(
                 title="**エラー!**",
                 description="**ポイントの移動に失敗しました。**",
@@ -241,7 +183,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             return
         target_id = user.id
         if allowed:
-            points_repo.grant_remove_permission(interaction.guild.id, target_id)
+            points_service.grant_remove_permission(interaction.guild.id, target_id)
             embed = discord.Embed(
                 title="**ポイント剥奪権限を付与しました**",
                 description=f"**{user.display_name}さんに権限を付与しました。**",
@@ -249,8 +191,9 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             )
             await interaction.response.send_message(embed=embed)
             return
-        removed = points_repo.revoke_remove_permission(interaction.guild.id, target_id)
-        if not removed:
+        try:
+            points_service.revoke_remove_permission(interaction.guild.id, target_id)
+        except PermissionNotGrantedError:
             embed = discord.Embed(
                 title="**エラー!**",
                 description="**対象ユーザーは権限を持っていません。**",
@@ -277,8 +220,9 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
-        channel_id = points_repo.get_clan_register_channel(interaction.guild.id)
-        if channel_id is None:
+        try:
+            channel_id = points_service.get_clan_register_channel(interaction.guild.id)
+        except MissingClanRegisterChannelError:
             await interaction.response.send_message(
                 embed=_permission_error_embed("通知先チャンネルが未設定です。")
             )
@@ -325,7 +269,7 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
                 )
             )
             return
-        points_repo.set_clan_register_channel(interaction.guild.id, channel.id)
+        points_service.set_clan_register_channel(interaction.guild.id, channel.id)
         embed = discord.Embed(
             title="**クラン登録通知チャンネルを設定しました**",
             description=f"**通知先: {channel.mention}**",
@@ -362,7 +306,13 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
                 embed=_permission_error_embed("価格は1以上で指定してください。")
             )
             return
-        points_repo.set_role_buy_price(interaction.guild.id, role.id, price)
+        try:
+            points_service.set_role_buy_price(interaction.guild.id, role.id, price)
+        except InvalidPointsError:
+            await interaction.response.send_message(
+                embed=_permission_error_embed("価格は1以上で指定してください。")
+            )
+            return
         embed = discord.Embed(
             title="**ロール購入を登録しました**",
             description=f"**対象: {role.mention} / 価格: {price}ポイント**",
@@ -400,29 +350,37 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             )
             await interaction.response.send_message(embed=embed)
             return
-        price = points_repo.get_role_buy_price(interaction.guild.id, role.id)
-        if price is None:
+        try:
+            purchase = points_service.validate_role_purchase(
+                interaction.guild.id, role.id, member.id
+            )
+        except RoleNotForSaleError:
             await interaction.response.send_message(
                 embed=_permission_error_embed("このロールは購入対象ではありません。")
             )
             return
-        points = points_repo.get_user_points(interaction.guild.id, member.id)
-        if points is None or points < price:
+        except InsufficientPointsError:
             await interaction.response.send_message(
                 embed=_permission_error_embed("ポイントが足りません。")
             )
             return
-        points_repo.add_points(interaction.guild.id, member.id, -price)
+        points_service.charge_role_purchase(
+            interaction.guild.id, member.id, purchase.price
+        )
         try:
             await member.add_roles(role, reason="role buy")
         except discord.Forbidden:
-            points_repo.add_points(interaction.guild.id, member.id, price)
+            points_service.refund_role_purchase(
+                interaction.guild.id, member.id, purchase.price
+            )
             await interaction.response.send_message(
                 embed=_permission_error_embed("ロールを付与できませんでした。")
             )
             return
         except discord.HTTPException:
-            points_repo.add_points(interaction.guild.id, member.id, price)
+            points_service.refund_role_purchase(
+                interaction.guild.id, member.id, purchase.price
+            )
             await interaction.response.send_message(
                 embed=_permission_error_embed("ロール付与に失敗しました。")
             )
@@ -435,33 +393,6 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
         await interaction.response.send_message(embed=embed)
 
 
-def create_bot_client(config: AppConfig) -> BotClient:
-    db = Database(
-        url=config.db_settings.supabase_url,
-        service_role_key=config.db_settings.service_role_key,
-    )
-    points_repo = PointsRepository(db)
-    print("[startup] DB connection check start")
-    try:
-        schema_ready = db.check_connection()
-    except DatabaseError as exc:
-        print(f"[startup] DB connection check failed: {exc}")
-        raise
-    if schema_ready:
-        print("[startup] DB connection OK")
-    else:
-        print("[startup] DB schema missing. Running setup.")
-    try:
-        points_repo.ensure_schema()
-    except DatabaseError as exc:
-        print(f"[startup] DB schema setup failed: {exc}")
-        raise
-    print("[startup] DB schema OK")
-    client = create_client(points_repo=points_repo)
-    register_commands(client, points_repo=points_repo)
-    return client
-
-
 def _is_guild_admin(interaction: discord.Interaction) -> bool:
     if interaction.guild is None:
         return False
@@ -470,16 +401,6 @@ def _is_guild_admin(interaction: discord.Interaction) -> bool:
         return False
     perms = user.guild_permissions
     return perms.administrator or perms.manage_guild
-
-
-def _has_remove_permission(
-    interaction: discord.Interaction, points_repo: PointsRepository
-) -> bool:
-    if _is_guild_admin(interaction):
-        return True
-    if interaction.guild is None:
-        return False
-    return points_repo.has_remove_permission(interaction.guild.id, interaction.user.id)
 
 
 def _permission_error_embed(message: str) -> discord.Embed:
