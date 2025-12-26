@@ -6,7 +6,7 @@ import os
 
 from dotenv import load_dotenv
 
-from config import load_token
+from app.config import load_token
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,3 +71,13 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
     discord_settings = load_discord_settings()
     db_settings = load_db_settings()
     return AppConfig(db_settings=db_settings, discord_settings=discord_settings)
+
+
+__all__ = [
+    "AppConfig",
+    "DBSettings",
+    "DiscordSettings",
+    "load_config",
+    "load_db_settings",
+    "load_discord_settings",
+]

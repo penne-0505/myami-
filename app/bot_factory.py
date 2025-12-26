@@ -5,8 +5,8 @@ from service.database import Database, DatabaseError
 from service.points_service import PointsService
 from service.repository import PointsRepository
 
-from command_registry import register_commands
-from settings import AppConfig
+from app.command_registry import register_commands
+from app.settings import AppConfig
 
 
 def create_bot_client(config: AppConfig) -> BotClient:
@@ -35,3 +35,6 @@ def create_bot_client(config: AppConfig) -> BotClient:
     points_service = PointsService(points_repo)
     register_commands(client, points_service=points_service)
     return client
+
+
+__all__ = ["create_bot_client"]

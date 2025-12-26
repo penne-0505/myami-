@@ -67,3 +67,6 @@ class PointsRepository:
 
     def get_role_buy_price(self, guild_id: int, role_id: int) -> int | None:
         return self._db.get_role_buy_price(guild_id, role_id)
+
+
+__all__ = ["PointsRepository"]

@@ -135,3 +135,18 @@ class PointsService:
 
     def refund_role_purchase(self, guild_id: int, user_id: int, price: int) -> None:
         self._repo.add_points(guild_id, user_id, price)
+
+
+__all__ = [
+    "InsufficientPointsError",
+    "InvalidPointsError",
+    "MissingClanRegisterChannelError",
+    "OperationFailedError",
+    "PermissionDeniedError",
+    "PermissionNotGrantedError",
+    "PointsService",
+    "PointsServiceError",
+    "RoleNotForSaleError",
+    "RolePurchase",
+    "TargetHasNoPointsError",
+]

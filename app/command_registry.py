@@ -426,3 +426,6 @@ async def _fetch_text_channel(
     if isinstance(fetched, discord.TextChannel) and fetched.guild.id == guild.id:
         return fetched
     return None
+
+
+__all__ = ["register_commands"]

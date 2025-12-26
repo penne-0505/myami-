@@ -27,3 +27,6 @@ def _parse_admin_ids(raw: str) -> set[int]:
     if not admin_ids:
         raise ValueError("DS_ADMIN_IDS is empty.")
     return admin_ids
+
+
+__all__ = []
