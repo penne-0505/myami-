@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from bot_factory import create_bot_client
-from command_registry import register_commands
-from settings import (
+from app.bot_factory import create_bot_client
+from app.command_registry import register_commands
+from app.settings import (
     AppConfig,
     DBSettings,
     DiscordSettings,

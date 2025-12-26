@@ -6,7 +6,7 @@ import os
 
 from dotenv import load_dotenv
 
-from config import load_token
+from app.config import load_token
 
 
 @dataclass(frozen=True, slots=True)

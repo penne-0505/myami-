@@ -1,4 +1,4 @@
-from facade import create_bot_client, load_config
+from app.facade import create_bot_client, load_config
 import sys
 
 
