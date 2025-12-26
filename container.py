@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from client import BotClient, create_client
-from database import PointsRepository, Database
+from database import Database
 from config import load_token
 from dotenv import load_dotenv
 from dataclasses import dataclass
 from pathlib import Path
 import discord
 import os
+
+from repository import PointsRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +118,8 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
         await interaction.response.send_message(embed=rank_embed)
 
     @tree.command(
-        name="send", description="指定されたユーザーに指定された数のポイントを送信します。"
+        name="send",
+        description="指定されたユーザーに指定された数のポイントを送信します。",
     )
     async def send_command(
         interaction: discord.Interaction, user: discord.Member, points: int
@@ -286,7 +289,9 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             return
         if channel.guild.id != interaction.guild.id:
             await interaction.response.send_message(
-                embed=_permission_error_embed("同じサーバーのチャンネルを指定してください。")
+                embed=_permission_error_embed(
+                    "同じサーバーのチャンネルを指定してください。"
+                )
             )
             return
         points_repo.set_clan_register_channel(interaction.guild.id, channel.id)
@@ -316,7 +321,9 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             return
         if role.guild.id != interaction.guild.id:
             await interaction.response.send_message(
-                embed=_permission_error_embed("同じサーバーのロールを指定してください。")
+                embed=_permission_error_embed(
+                    "同じサーバーのロールを指定してください。"
+                )
             )
             return
         if price <= 0:
@@ -349,7 +356,9 @@ def register_commands(client: BotClient, *, points_repo: PointsRepository) -> No
             return
         if role.guild.id != interaction.guild.id:
             await interaction.response.send_message(
-                embed=_permission_error_embed("同じサーバーのロールを指定してください。")
+                embed=_permission_error_embed(
+                    "同じサーバーのロールを指定してください。"
+                )
             )
             return
         if role in member.roles:
