@@ -14,6 +14,21 @@ class Database:
         self._client: Client = create_client(url, service_role_key)
 
     @staticmethod
+    def _format_error(error: Any) -> str:
+        if error is None:
+            return "unknown error"
+        message = getattr(error, "message", None)
+        if message:
+            return str(message)
+        return str(error)
+
+    @staticmethod
+    def _is_schema_missing(error: Any) -> bool:
+        message = Database._format_error(error)
+        lowered = message.lower()
+        return "does not exist" in lowered and "points" in lowered
+
+    @staticmethod
     def _extract_scalar(data: Any) -> Any:
         if isinstance(data, list):
             if not data:
@@ -30,8 +45,21 @@ class Database:
     def _unwrap(response: Any, *, context: str) -> Any:
         error = getattr(response, "error", None)
         if error:
-            raise DatabaseError(f"{context} failed: {error}")
+            message = Database._format_error(error)
+            raise DatabaseError(f"{context} failed: {message}")
         return getattr(response, "data", None)
+
+    def check_connection(self) -> bool:
+        response = (
+            self._client.table("points").select("user_id").limit(1).execute()
+        )
+        error = getattr(response, "error", None)
+        if error:
+            if self._is_schema_missing(error):
+                return False
+            message = self._format_error(error)
+            raise DatabaseError(f"db connection check failed: {message}")
+        return True
 
     def ensure_schema(self) -> None:
         response = self._client.rpc("ensure_points_schema").execute()

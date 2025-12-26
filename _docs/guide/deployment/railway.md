@@ -41,3 +41,5 @@ Supabase の SQL Editor で `supabase/supabase_init.sql` を実行し、
 - Variables 画面では Raw Editor で `.env` を貼り付けられるため、まとめて設定する場合に活用する。
 - リポジトリ内の `.env` を検出して変数候補を提示できるため、必要に応じて取り込む。
 - Start Command を手動設定することで、自動検出に依存せず起動できる。
+- 起動ログに `[startup] DB connection check` が出るため、環境変数や Supabase の到達性確認に利用できる。
+- DB スキーマ未作成の場合は起動時に自動初期化を試みる。失敗する場合は SQL セットアップを再確認する。
