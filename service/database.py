@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+from typing import Any
+
+from supabase import Client, create_client
+
+
+class DatabaseError(RuntimeError):
+    pass
+
+
+class Database:
+    def __init__(self, *, url: str, service_role_key: str):
+        self._client: Client = create_client(url, service_role_key)
+
+    @staticmethod
+    def _format_error(error: Any) -> str:
+        if error is None:
+            return "unknown error"
+        message = getattr(error, "message", None)
+        if message:
+            return str(message)
+        return str(error)
+
+    @staticmethod
+    def _is_schema_missing(error: Any) -> bool:
+        message = Database._format_error(error)
+        lowered = message.lower()
+        return "does not exist" in lowered and "points" in lowered
+
+    @staticmethod
+    def _extract_scalar(data: Any) -> Any:
+        if isinstance(data, list):
+            if not data:
+                return None
+            value = data[0]
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    return next(iter(value.values()))
+                return value
+            return value
+        return data
+
+    @staticmethod
+    def _unwrap(response: Any, *, context: str) -> Any:
+        error = getattr(response, "error", None)
+        if error:
+            message = Database._format_error(error)
+            raise DatabaseError(f"{context} failed: {message}")
+        return getattr(response, "data", None)
+
+    def check_connection(self) -> bool:
+        response = (
+            self._client.table("points").select("user_id").limit(1).execute()
+        )
+        error = getattr(response, "error", None)
+        if error:
+            if self._is_schema_missing(error):
+                return False
+            message = self._format_error(error)
+            raise DatabaseError(f"db connection check failed: {message}")
+        return True
+
+    def ensure_schema(self) -> None:
+        response = self._client.rpc("ensure_points_schema").execute()
+        try:
+            self._unwrap(response, context="ensure_points_schema")
+        except DatabaseError as exc:
+            raise DatabaseError(
+                "ensure_points_schema failed. Run the SQL setup in "
+                "_docs/guide/deployment/railway.md."
+            ) from exc
+
+    def ensure_user(self, guild_id: int, user_id: int) -> None:
+        response = (
+            self._client.table("points")
+            .upsert(
+                {"guild_id": guild_id, "user_id": user_id, "points": 0},
+                on_conflict="guild_id,user_id",
+            )
+            .execute()
+        )
+        self._unwrap(response, context="ensure_user")
+
+    def get_points(self, guild_id: int, user_id: int) -> int | None:
+        response = (
+            self._client.table("points")
+            .select("points")
+            .eq("guild_id", guild_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_points")
+        if not data:
+            return None
+        return int(data[0]["points"])
+
+    def add_points(self, guild_id: int, user_id: int, delta: int) -> int:
+        response = self._client.rpc(
+            "add_points",
+            {"p_guild_id": guild_id, "p_user_id": user_id, "p_delta": delta},
+        ).execute()
+        data = self._unwrap(response, context="add_points")
+        value = self._extract_scalar(data)
+        return 0 if value is None else int(value)
+
+    def top_rank(self, guild_id: int, limit: int = 10) -> list[dict[str, Any]]:
+        response = (
+            self._client.table("points")
+            .select("user_id, points")
+            .eq("guild_id", guild_id)
+            .order("points", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        data = self._unwrap(response, context="top_rank")
+        return [] if data is None else list(data)
+
+    def transfer(
+        self, guild_id: int, sender_id: int, recipient_id: int, points: int
+    ) -> bool:
+        if points <= 0:
+            return False
+        response = self._client.rpc(
+            "transfer_points",
+            {
+                "p_guild_id": guild_id,
+                "p_sender_id": sender_id,
+                "p_recipient_id": recipient_id,
+                "p_points": points,
+            },
+        ).execute()
+        data = self._unwrap(response, context="transfer_points")
+        value = self._extract_scalar(data)
+        return bool(value)
+
+    def has_remove_permission(self, guild_id: int, user_id: int) -> bool:
+        response = (
+            self._client.table("point_remove_permissions")
+            .select("user_id")
+            .eq("guild_id", guild_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="has_remove_permission")
+        return bool(data)
+
+    def grant_remove_permission(self, guild_id: int, user_id: int) -> None:
+        response = (
+            self._client.table("point_remove_permissions")
+            .upsert(
+                {"guild_id": guild_id, "user_id": user_id},
+                on_conflict="guild_id,user_id",
+            )
+            .execute()
+        )
+        self._unwrap(response, context="grant_remove_permission")
+
+    def revoke_remove_permission(self, guild_id: int, user_id: int) -> bool:
+        response = (
+            self._client.table("point_remove_permissions")
+            .delete()
+            .eq("guild_id", guild_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        data = self._unwrap(response, context="revoke_remove_permission")
+        return bool(data)
+
+    def set_clan_register_channel(self, guild_id: int, channel_id: int) -> None:
+        response = (
+            self._client.table("clan_register_settings")
+            .upsert(
+                {"guild_id": guild_id, "channel_id": channel_id}, on_conflict="guild_id"
+            )
+            .execute()
+        )
+        self._unwrap(response, context="set_clan_register_channel")
+
+    def get_clan_register_channel(self, guild_id: int) -> int | None:
+        response = (
+            self._client.table("clan_register_settings")
+            .select("channel_id")
+            .eq("guild_id", guild_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_clan_register_channel")
+        if not data:
+            return None
+        return int(data[0]["channel_id"])
+
+    def set_role_buy_price(self, guild_id: int, role_id: int, price: int) -> None:
+        response = (
+            self._client.table("role_buy_settings")
+            .upsert(
+                {"guild_id": guild_id, "role_id": role_id, "price": price},
+                on_conflict="guild_id,role_id",
+            )
+            .execute()
+        )
+        self._unwrap(response, context="set_role_buy_price")
+
+    def get_role_buy_price(self, guild_id: int, role_id: int) -> int | None:
+        response = (
+            self._client.table("role_buy_settings")
+            .select("price")
+            .eq("guild_id", guild_id)
+            .eq("role_id", role_id)
+            .limit(1)
+            .execute()
+        )
+        data = self._unwrap(response, context="get_role_buy_price")
+        if not data:
+            return None
+        return int(data[0]["price"])

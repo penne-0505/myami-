@@ -1,26 +1,31 @@
 # Project Task Management Rules
 
 ## 0. System Metadata
-- **Current Max ID**: `Next ID No: 1` (※タスク追加時にインクリメント必須)
-- **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一のID発番元である。
+
+- **Current Max ID**: `Next ID No: 8` (※タスク追加時にインクリメント必須)
+- **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
+
 タスクは以下の順序で単方向に遷移する。逆行は原則禁止とする。
 
 ### Phase 0: Inbox (Human Write-only)
+
 - **Location**: `# Inbox (Unsorted)` セクション
-- **Description**: 人間がアイデアや依頼を書き殴る場所。フォーマット不問。ID未付与。
-- **Exit Condition**: LLMが内容を解析し、IDを付与して `Backlog` へ構造化移動する。
+- **Description**: 人間がアイデアや依頼を書き殴る場所。フォーマット不問。ID 未付与。
+- **Exit Condition**: LLM が内容を解析し、ID を付与して `Backlog` へ構造化移動する。
 
 ### Phase 1: Backlog (Structured)
+
 - **Location**: `# Backlog` セクション
 - **Status**: タスクとして認識済みだが、着手準備未完了。
-- **Entry Criteria**: 
-  - IDが一意に採番されている。
+- **Entry Criteria**:
+  - ID が一意に採番されている。
   - 必須フィールド（Title, ID, Priority, Size, Area, Description）が埋まっている。
 - **Exit Condition**: `Ready` の要件を満たす。
 
 ### Phase 2: Ready (Actionable)
+
 - **Location**: `# Ready` セクション
 - **Status**: いつでも着手可能な状態。
 - **Entry Criteria**:
@@ -28,57 +33,65 @@
     - `Size: M` 以上 (M, L, XL): `Plan` フィールドに有効な `_docs/plan/...` へのリンクが**必須**。
     - `Size: S` 以下 (XS, S): `Plan` は **None** でよい。
   - **Dependencies**: 解決済み（または明確化済み）である。
-  - **Steps**: 具体的な実行手順（またはPlanへのポインタ）が記述されている。
+  - **Steps**: 具体的な実行手順（または Plan へのポインタ）が記述されている。
 - **Exit Condition**: 作業者がタスクに着手する。
 
 ### Phase 3: In Progress
+
 - **Location**: `# In Progress` セクション
 - **Status**: 現在実行中。
 - **Entry Criteria**: 作業者がアサインされている（または自律的に着手）。
 
 ### Phase 4: Done
+
 - **Location**: なし（行削除）
 - **Exit Action**: `Goal` 達成を確認後、リストから物理削除する。
 
 ## 2. Schema & Validation
+
 各タスクは以下の厳格なスキーマに従うこと。
 
-| Field | Type | Constraint / Value Set |
-| :--- | :--- | :--- |
-| **Title** | `String` | `[Category] Title` 形式。Categoryは後述のEnum参照。 |
-| **ID** | `String` | `{Area}-{Category}-{Number}` 形式。不変の一意キー。 |
-| **Priority** | `Enum` | `P0` (Critical), `P1` (High), `P2` (Medium), `P3` (Low) |
-| **Size** | `Enum` | `XS` (<0.5d), `S` (1d), `M` (2-3d), `L` (1w), `XL` (>2w) |
-| **Area** | `Enum` | `_docs/plan/` 直下のディレクトリ名と一致する値。 |
-| **Dependencies**| `List<ID>`| 依存タスクIDの配列 `[Core-Feat-1, UI-Bug-2]`。なしは `[]`。 |
-| **Goal** | `String` | 完了条件（Definition of Done）。 |
-| **Steps** | `Markdown` | 進行管理用のチェックリスト（詳細は後述）。 |
-| **Description** | `String` | タスクの詳細。 |
-| **Plan** | `Path` | `Size >= M` の場合必須。`_docs/plan/` へのパス。`Size < M` は `None` 可。 |
+| Field            | Type       | Constraint / Value Set                                                    |
+| :--------------- | :--------- | :------------------------------------------------------------------------ |
+| **Title**        | `String`   | `[Category] Title` 形式。Category は後述の Enum 参照。                    |
+| **ID**           | `String`   | `{Area}-{Category}-{Number}` 形式。不変の一意キー。                       |
+| **Priority**     | `Enum`     | `P0` (Critical), `P1` (High), `P2` (Medium), `P3` (Low)                   |
+| **Size**         | `Enum`     | `XS` (<0.5d), `S` (1d), `M` (2-3d), `L` (1w), `XL` (>2w)                  |
+| **Area**         | `Enum`     | `_docs/plan/` 直下のディレクトリ名と一致する値。                          |
+| **Dependencies** | `List<ID>` | 依存タスク ID の配列 `[Core-Feat-1, UI-Bug-2]`。なしは `[]`。             |
+| **Goal**         | `String`   | 完了条件（Definition of Done）。                                          |
+| **Steps**        | `Markdown` | 進行管理用のチェックリスト（詳細は後述）。                                |
+| **Description**  | `String`   | タスクの詳細。                                                            |
+| **Plan**         | `Path`     | `Size >= M` の場合必須。`_docs/plan/` へのパス。`Size < M` は `None` 可。 |
 
 ## 3. Field Usage Guidelines
 
 ### Area & Directory Mapping
+
 - **Rule**: `Area` フィールドの値は、`_docs/plan/` 直下に実在するディレクトリ名（ドメイン）と一致させること。
 - **New Area**: 新しい領域のタスクを作成する場合、まず `_docs/plan/` にディレクトリを作成してから、その名前を `Area` に指定する。
 - **Example**: `Area: Core` -> implies existence of `_docs/plan/Core/`
 
 ### Steps vs Plan
+
 タスクの規模に応じて `Steps` の記述方針を切り替えること。情報の二重管理を避ける。
 
-- **Case A: Planあり (Size >= M)**
-  - `Steps` は **「Planを実行するための進行管理チェックリスト」** として機能する。
+- **Case A: Plan あり (Size >= M)**
+
+  - `Steps` は **「Plan を実行するための進行管理チェックリスト」** として機能する。
   - 詳細な仕様やコードは Plan に記述し、Steps には複製しない。
   - 例: `1. [ ] Planの "DB Schema" セクションに従いマイグレーション作成`
 
-- **Case B: Planなし (Size < M)**
+- **Case B: Plan なし (Size < M)**
   - `Steps` に **「具体的な作業手順」** を直接記述する。
   - 例: `1. [ ] src/utils/format.ts の dateFormat 関数を修正`
 
 ## 4. Defined Enums
 
 ### Categories (Title & ID)
-ID生成およびタイトルのプレフィックスには以下のみを使用する。
+
+ID 生成およびタイトルのプレフィックスには以下のみを使用する。
+
 - `Feat` (New Feature)
 - `Enhance` (Improvement)
 - `Bug` (Fix)
@@ -89,7 +102,9 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - `Chore` (Maintenance/Misc)
 
 ### Areas (Examples)
+
 **※実際には `_docs/plan/` のディレクトリ構成に従う。**
+
 - `Core`: 基盤ロジック
 - `UI`: プレゼンテーション層
 - `Docs`: ドキュメント整備自体
@@ -99,27 +114,30 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ## 5. Operational Workflows (for LLM)
 
 ### [Action] Create Task from Inbox
-1. `Next ID No` を読み取り、割り当て予定のIDを決定する。
+
+1. `Next ID No` を読み取り、割り当て予定の ID を決定する。
 2. `Next ID No` をインクリメントしてファイルを更新する。
-3. Inboxの内容を解析し、最適な `Area` と `Category` を決定する。
-4. IDを生成する（例: `Core-Feat-24`）。
+3. Inbox の内容を解析し、最適な `Area` と `Category` を決定する。
+4. ID を生成する（例: `Core-Feat-24`）。
 5. タスクをフォーマットし、`Backlog` の末尾に追加する。
-6. 元のInbox行を削除する。
+6. 元の Inbox 行を削除する。
 
 ### [Action] Promote to Ready
+
 1. **Size check**:
    - `Size >= M` ならば、`Plan` フィールドが有効なリンクであることを検証する。リンク切れや未作成の場合は移動を拒否する。
    - `Size < M` ならば、`Plan` が `None` でも許容する。
-2. **Steps check**: `Steps` が具体的か（あるいはPlanへのポインタとして機能しているか）確認する。
+2. **Steps check**: `Steps` が具体的か（あるいは Plan へのポインタとして機能しているか）確認する。
 3. **Dependency check**: 依存タスクが完了済みか確認する。
 4. 全てクリアした場合のみ `Ready` セクションへ移動する。
 
 ## 6. Task Definition Examples (Few-Shot)
 
-以下の例を参考に、サイズ（Size）に応じた記述ルール（Planの有無、Stepsの粒度）を厳守すること。
+以下の例を参考に、サイズ（Size）に応じた記述ルール（Plan の有無、Steps の粒度）を厳守すること。
 
 ### Case A: Feature Implementation (Size >= M)
-**Rule**: `Plan` へのリンクが必須。`Steps` はPlanの参照ポインタとして記述する。
+
+**Rule**: `Plan` へのリンクが必須。`Steps` は Plan の参照ポインタとして記述する。
 
 ```markdown
 - **Title**: [Feat] User Authentication Flow
@@ -128,15 +146,15 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Size**: M
 - **Area**: Core
 - **Dependencies**: []
-- **Goal**: ユーザーがEmail/Passwordでサインアップおよびログインできる状態にする。
+- **Goal**: ユーザーが Email/Password でサインアップおよびログインできる状態にする。
 - **Steps**:
-  1. [ ] Planの "Schema Design" セクションに基づき、Userテーブルのマイグレーションを作成・適用
-  2. [ ] Planの "API Specification" に従い、`/auth/login` エンドポイントを実装
-  3. [ ] Planの "Security" に記載されたJWT発行ロジックを実装
-  4. [ ] E2Eテストを実施し、ログインフローの疎通を確認
+  1. [ ] Plan の "Schema Design" セクションに基づき、User テーブルのマイグレーションを作成・適用
+  2. [ ] Plan の "API Specification" に従い、`/auth/login` エンドポイントを実装
+  3. [ ] Plan の "Security" に記載された JWT 発行ロジックを実装
+  4. [ ] E2E テストを実施し、ログインフローの疎通を確認
 - **Description**: 新規サービスの基盤となる認証機能を実装する。
 - **Plan**: `_docs/plan/Core/auth-feature.md`
-````
+```
 
 ### Case B: Small Fix / Maintenance (Size \< M)
 
@@ -152,7 +170,7 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Goal**: ログイン画面のボタンのラベルが "Subimt" から "Submit" に修正されている。
 - **Steps**:
   1. [ ] `src/components/LoginForm.tsx` を開く
-  2. [ ] Submitボタンのラベル文字列を修正する
+  2. [ ] Submit ボタンのラベル文字列を修正する
   3. [ ] ブラウザで表示を確認し、レイアウト崩れがないか確認
 - **Description**: ユーザーから報告された誤字の修正。
 - **Plan**: None
@@ -160,7 +178,7 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 
 ### Case C: New Area / Doc Task (Size S)
 
-**Rule**: 新しいAreaが必要な場合、ディレクトリ作成を含む。
+**Rule**: 新しい Area が必要な場合、ディレクトリ作成を含む。
 
 ```markdown
 - **Title**: [Doc] Add Deployment Guide
@@ -171,20 +189,52 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 - **Dependencies**: [Core-Feat-25]
 - **Goal**: 新メンバー向けのデプロイ手順書が `_docs/guide/deployment.md` に作成されている。
 - **Steps**:
-  1. [ ] `_docs/plan/DevOps/` ディレクトリが存在しないため作成する (Area定義用)
+  1. [ ] `_docs/plan/DevOps/` ディレクトリが存在しないため作成する (Area 定義用)
   2. [ ] `_docs/guide/deployment.md` を作成し、ステージング環境へのデプロイ手順を記述
 - **Description**: オンボーディングコスト削減のため、暗黙知になっているデプロイ手順をドキュメント化する。
 - **Plan**: None
 ```
 
---- 
+---
 
 ## Inbox
-- なし
+
+- logger 導入
 
 ---
 
 ## Backlog
+
+- **Title**: [Enhance] Startup DB check and error logging
+- **ID**: Core-Enhance-6
+- **Priority**: P1
+- **Size**: S
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: 起動時にDB接続確認が行われ、失敗時はエラーハンドリングとログ出力が行われる。
+- **Steps**:
+  1. [ ] `service/database.py` に接続確認用メソッドと例外情報の整形出力を追加
+  2. [ ] `app/container.py` で起動時のDB確認フローとログ出力を実装
+  3. [ ] 起動時ログの仕様を `_docs/reference/app/container.md` と `_docs/reference/app/bot_client.md` に反映
+  4. [ ] 失敗時のガイダンスを `_docs/guide/deployment/railway.md` に追記
+- **Description**: Bot 起動時にDB接続の健全性確認とログ出力を行い、失敗時の原因把握を容易にする。
+- **Plan**: None
+
+- **Title**: [Enhance] Guild-scoped points
+- **ID**: Core-Enhance-7
+- **Priority**: P1
+- **Size**: M
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: ポイントが guild ごとに分離され、同一ユーザーでもサーバー間で独立したポイントを保持できる。
+- **Steps**:
+  1. [ ] Plan の "DB" に従い `points` / `point_remove_permissions` / RPC の schema を更新する
+  2. [ ] Plan の "App/Service" に従い API とコマンド実装を guild 対応へ更新する
+  3. [ ] Plan の "Docs" に従い reference/guide を更新する
+  4. [ ] Plan の "Test Plan" に従い guild 分離の動作を確認する
+  5. [ ] 既存ポイントの移行方針を確定し、必要な移行手順を実行する
+- **Description**: ポイントや権限管理を guild 単位に分割し、サーバー間の干渉を防ぐ。
+- **Plan**: _docs/plan/Core/guild-scoped-points.md
 
 ---
 
@@ -193,3 +243,31 @@ ID生成およびタイトルのプレフィックスには以下のみを使用
 ---
 
 ## In Progress
+
+- **Title**: [Feat] VC接続時間に応じたポイント付与
+- **ID**: Core-Feat-4
+- **Priority**: P1
+- **Size**: M
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: VCに接続しているユーザーに対し、時間経過でポイントが付与される。
+- **Steps**:
+  1. [ ] Plan の "Requirements" に従いVCポイント付与の条件を実装
+  2. [ ] Plan の "Tasks" に従い `bot/client.py` のロジックを追加
+  3. [ ] Plan の "Test Plan" に従い動作確認を行う
+- **Description**: VC接続中に一定時間ごとにポイントが加算される仕組みを追加する。
+- **Plan**: _docs/plan/Core/voice-pointing.md
+
+- **Title**: [Feat] ポイント賭けゲームの追加
+- **ID**: Core-Feat-5
+- **Priority**: P1
+- **Size**: L
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: テキストコマンドで5種類のゲームを実行し、掛け金に応じたポイントの増減が行われる。
+- **Steps**:
+  1. [x] Plan の "Requirements" と "Open Questions" を確定させる
+  2. [x] Plan の "Tasks" に従いコマンド入力とポイント授受を実装する
+  3. [ ] Plan の "Test Plan" に従い動作確認を行う
+- **Description**: スロット/おみくじ/hit&blow/じゃんけん/コイントスをポイント賭けで遊べるようにする。
+- **Plan**: _docs/plan/Core/point-games.md
