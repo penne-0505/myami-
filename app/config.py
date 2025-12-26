@@ -19,3 +19,5 @@ def load_token(env_file: str | None = None) -> str:
         raise ValueError("DS_SECRET_TOKEN is not set in the environment variables.")
     return env_content
 
+
+__all__ = ["load_token"]

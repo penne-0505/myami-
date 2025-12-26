@@ -216,3 +216,6 @@ class Database:
         if not data:
             return None
         return int(data[0]["price"])
+
+
+__all__ = ["Database", "DatabaseError"]
