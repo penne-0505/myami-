@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
+import base64
+import json
 import os
 
 from dotenv import load_dotenv
@@ -34,6 +37,30 @@ def _load_env_file(env_file: str | Path | None = None) -> None:
         load_dotenv(dotenv_path=path)
 
 
+def _get_jwt_role(token: str) -> str | None:
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    payload = parts[1]
+    padding = "=" * (-len(payload) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        data = json.loads(decoded.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError):
+        return None
+    role = data.get("role")
+    return role if isinstance(role, str) else None
+
+
+def describe_db_settings(db_settings: DBSettings) -> dict[str, str | None]:
+    parsed = urlparse(db_settings.supabase_url)
+    host = parsed.hostname or ""
+    return {
+        "supabase_host": host,
+        "service_role": _get_jwt_role(db_settings.service_role_key),
+    }
+
+
 def load_discord_settings(
     raw_token: str | None = None,
 ) -> DiscordSettings:
@@ -62,6 +89,14 @@ def load_db_settings(
     service_role_key = service_role_key.strip() if service_role_key is not None else ""
     if service_role_key == "":
         raise ValueError("SUPABASE_SERVICE_ROLE_KEY is not provided.")
+    role = _get_jwt_role(service_role_key)
+    if role is None:
+        raise ValueError("SUPABASE_SERVICE_ROLE_KEY is invalid or missing role claim.")
+    if role != "service_role":
+        raise ValueError(
+            "SUPABASE_SERVICE_ROLE_KEY must be a service_role key, "
+            f"but role was '{role}'."
+        )
 
     return DBSettings(supabase_url=supabase_url, service_role_key=service_role_key)
 
@@ -77,6 +112,7 @@ __all__ = [
     "AppConfig",
     "DBSettings",
     "DiscordSettings",
+    "describe_db_settings",
     "load_config",
     "load_db_settings",
     "load_discord_settings",
