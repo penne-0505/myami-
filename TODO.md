@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 9` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 10` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -204,6 +204,22 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 ---
 
 ## Backlog
+
+- **Title**: [Enhance] ゲーム入力の対話式フロー化
+- **ID**: Core-Enhance-9
+- **Priority**: P1
+- **Size**: M
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: すべてのポイント賭けゲームが掛け金・選択肢を対話的に取得し、1メッセージ入力に依存しない進行になる。
+- **Steps**:
+  1. [ ] `bot/client.py` のゲーム開始/セッション処理の現状フローを整理する
+  2. [ ] ゲーム別の入力ステップ設計（掛け金/選択肢/回答）を Plan に記述する
+  3. [ ] 対話式入力フローに合わせてセッション構造と入力処理を更新する
+  4. [ ] 失敗・タイムアウト・キャンセル時の挙動を揃える
+  5. [ ] ユーザー向けガイドとリファレンスを更新する
+- **Description**: スラッシュコマンドのように引数を一度に受け取るのではなく、メッセージの往復で掛け金や選択肢を取得するゲームフローへ変更する。
+- **Plan**: _docs/plan/Core/interactive-game-input.md
 
 - **Title**: [Enhance] Startup DB check and error logging
 - **ID**: Core-Enhance-6

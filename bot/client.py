@@ -9,10 +9,18 @@ import time
 import discord
 from discord.ext import tasks
 
+from bot.constants import (
+    CANCEL_WORDS,
+    COIN_ALIASES,
+    COIN_LABELS,
+    COMMAND_PREFIXES,
+    JANKEN_ALIASES,
+    JANKEN_LABELS,
+)
 
-COMMAND_PREFIX = "m."
 GAME_COOLDOWN_SECONDS = 1.0
 MIN_BET = 100
+GAME_INPUT_TIMEOUT_SECONDS = 120.0
 HIT_BLOW_DIGITS = 3
 HIT_BLOW_MAX_TRIES = 10
 HIT_BLOW_TIMEOUT_SECONDS = 120.0
@@ -54,6 +62,16 @@ class JankenSession:
     channel_id: int
 
 
+@dataclass
+class GameInputSession:
+    game: str
+    bet: int | None
+    choice: str | None
+    started_ts: float
+    last_activity_ts: float
+    channel_id: int
+
+
 class BotClient(discord.Client):
     def __init__(
         self,
@@ -65,7 +83,7 @@ class BotClient(discord.Client):
         self.tree = discord.app_commands.CommandTree(self)
         self.points_repo = points_repo
         self.voice_sessions: dict[int, VoiceSession] = {}
-        self.game_sessions: dict[int, HitBlowSession | JankenSession] = {}
+        self.game_sessions: dict[int, HitBlowSession | JankenSession | GameInputSession] = {}
         self.game_cooldowns: dict[int, float] = {}
 
     async def on_ready(self) -> None:
@@ -88,13 +106,14 @@ class BotClient(discord.Client):
         if handled_session:
             return
 
-        if not message.content.startswith(COMMAND_PREFIX):
+        prefix = self._match_command_prefix(message.content)
+        if prefix is None:
             return
 
         if await self._check_game_cooldown(message):
             return
 
-        await self._handle_game_command(message)
+        await self._handle_game_command(message, prefix)
 
     async def on_voice_state_update(
         self,
@@ -248,6 +267,18 @@ class BotClient(discord.Client):
             return True
 
         now = time.time()
+        if isinstance(session, GameInputSession):
+            if now - session.last_activity_ts >= GAME_INPUT_TIMEOUT_SECONDS:
+                self.game_sessions.pop(message.author.id, None)
+                await message.channel.send("入力待ちが時間切れで終了しました。")
+                return False
+            session.last_activity_ts = now
+            if self._is_cancel_message(message.content):
+                self.game_sessions.pop(message.author.id, None)
+                await message.channel.send("ゲームをキャンセルしました。")
+                return True
+            await self._handle_game_input_message(message, session)
+            return True
         if isinstance(session, HitBlowSession):
             if now - session.last_activity_ts >= HIT_BLOW_TIMEOUT_SECONDS:
                 self.game_sessions.pop(message.author.id, None)
@@ -268,11 +299,13 @@ class BotClient(discord.Client):
 
         return False
 
-    async def _handle_game_command(self, message: discord.Message) -> None:
+    async def _handle_game_command(
+        self, message: discord.Message, prefix: str
+    ) -> None:
         content = message.content.strip()
-        if not content.startswith(COMMAND_PREFIX):
+        if not content.startswith(prefix):
             return
-        raw = content[len(COMMAND_PREFIX) :].strip()
+        raw = content[len(prefix) :].strip()
         if raw == "":
             await message.channel.send("ゲームコマンドを指定してください。")
             return
@@ -305,179 +338,90 @@ class BotClient(discord.Client):
     async def _start_slot(self, message: discord.Message, args: list[str]) -> None:
         bet = self._parse_bet(args)
         if bet is None:
-            await message.channel.send("使い方: m.slot <掛け金>")
+            self._start_game_input_session(message, game="slot", bet=None, choice=None)
+            await message.channel.send("スロットを開始します。掛け金を入力してください。")
             return
-        bet_error = self._validate_bet(bet)
-        if bet_error is not None:
-            await message.channel.send(bet_error)
-            return
-        can_pay, required, points = self._ensure_balance(
-            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
-        )
-        if not can_pay:
-            await message.channel.send(
-                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
-            )
-            return
-
-        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
-
-        slot_message = await message.channel.send("🎰 | ??? | ??? | ???")
-        reels = ["❓", "❓", "❓"]
-        for _ in range(SLOT_ANIMATION_STEPS):
-            reels = [random.choice(SLOT_SYMBOLS) for _ in range(3)]
-            await asyncio.sleep(SLOT_ANIMATION_INTERVAL_SECONDS)
-            await slot_message.edit(content=f"🎰 | {reels[0]} | {reels[1]} | {reels[2]} |")
-
-        multiplier = self._slot_multiplier(reels)
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
-        net = payout - bet
-        result_line = f"結果: {reels[0]} {reels[1]} {reels[2]}"
-        await message.channel.send(
-            f"{result_line}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
-        )
+        await self._resolve_slot(message, bet)
 
     async def _start_omikuji(self, message: discord.Message, args: list[str]) -> None:
         bet = self._parse_bet(args)
         if bet is None:
-            await message.channel.send("使い方: m.omikuji <掛け金>")
+            self._start_game_input_session(message, game="omikuji", bet=None, choice=None)
+            await message.channel.send("おみくじを開始します。掛け金を入力してください。")
             return
-        bet_error = self._validate_bet(bet)
-        if bet_error is not None:
-            await message.channel.send(bet_error)
-            return
-        can_pay, required, points = self._ensure_balance(
-            message.guild.id, message.author.id, bet, max_loss_multiplier=1.5
-        )
-        if not can_pay:
-            await message.channel.send(
-                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
-            )
-            return
-
-        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
-        outcome, multiplier = self._draw_omikuji()
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
-        net = payout - bet
-        await message.channel.send(
-            f"おみくじ結果: {outcome}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
-        )
+        await self._resolve_omikuji(message, bet)
 
     async def _start_hit_blow(self, message: discord.Message, args: list[str]) -> None:
         bet = self._parse_bet(args)
         if bet is None:
-            await message.channel.send("使い方: m.hitblow <掛け金>")
+            self._start_game_input_session(message, game="hitblow", bet=None, choice=None)
+            await message.channel.send("hit&blow を開始します。掛け金を入力してください。")
             return
-        bet_error = self._validate_bet(bet)
-        if bet_error is not None:
-            await message.channel.send(bet_error)
-            return
-        can_pay, required, points = self._ensure_balance(
-            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
-        )
-        if not can_pay:
-            await message.channel.send(
-                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
-            )
-            return
-
-        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
-        target = "".join(random.sample("0123456789", HIT_BLOW_DIGITS))
-        session = HitBlowSession(
-            bet=bet,
-            target=target,
-            attempts_left=HIT_BLOW_MAX_TRIES,
-            started_ts=time.time(),
-            last_activity_ts=time.time(),
-            channel_id=message.channel.id,
-        )
-        self.game_sessions[message.author.id] = session
-        await message.channel.send(
-            "hit&blow を開始します。3桁の数字を入力してください。"
-            f"（試行 {HIT_BLOW_MAX_TRIES} 回 / quit で終了）"
-        )
+        await self._start_hit_blow_session(message, bet)
 
     async def _start_janken(self, message: discord.Message, args: list[str]) -> None:
         bet, choice = self._parse_bet_with_choice(args, self._parse_janken_choice)
         if bet is None:
-            await message.channel.send("使い方: m.janken <掛け金> [グー|チョキ|パー]")
+            self._start_game_input_session(message, game="janken", bet=None, choice=choice)
+            await message.channel.send("じゃんけん開始！掛け金を入力してください。")
             return
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
             await message.channel.send(bet_error)
             return
-        can_pay, required, points = self._ensure_balance(
-            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
-        )
-        if not can_pay:
-            await message.channel.send(
-                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
-            )
-            return
-
-        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
-        session = JankenSession(
-            bet=bet,
-            started_ts=time.time(),
-            last_activity_ts=time.time(),
-            channel_id=message.channel.id,
-        )
-        self.game_sessions[message.author.id] = session
 
         if choice is None:
+            self._start_game_input_session(message, game="janken", bet=bet, choice=None)
             await message.channel.send("じゃんけん開始！グー/チョキ/パーで返答してください。")
             return
 
-        await self._resolve_janken(message, session, choice)
+        await self._start_janken_session(message, bet, choice)
 
     async def _start_coin_toss(self, message: discord.Message, args: list[str]) -> None:
         bet, choice = self._parse_bet_with_choice(args, self._parse_coin_choice)
         if bet is None or choice is None:
-            await message.channel.send("使い方: m.coin <掛け金> <表|裏>")
+            if bet is not None:
+                bet_error = self._validate_bet(bet)
+                if bet_error is not None:
+                    await message.channel.send(bet_error)
+                    return
+                can_pay, required, points = self._ensure_balance(
+                    message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
+                )
+                if not can_pay:
+                    await message.channel.send(
+                        f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+                    )
+                    return
+            self._start_game_input_session(message, game="coin", bet=bet, choice=choice)
+            await message.channel.send("コイントス開始！掛け金と表/裏を入力してください。")
             return
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
             await message.channel.send(bet_error)
             return
-        can_pay, required, points = self._ensure_balance(
-            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
-        )
-        if not can_pay:
-            await message.channel.send(
-                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
-            )
-            return
 
-        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
-        result = random.choice(["heads", "tails"])
-        multiplier = 1.7 if result == choice else 0.0
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
-        net = payout - bet
-        result_label = "表" if result == "heads" else "裏"
-        choice_label = "表" if choice == "heads" else "裏"
-        await message.channel.send(
-            f"コイントス: {result_label}（選択: {choice_label}）\n"
-            f"倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
-        )
+        await self._resolve_coin_toss(message, bet, choice)
 
     async def _handle_hit_blow_answer(
         self, message: discord.Message, session: HitBlowSession
     ) -> None:
         content = message.content.strip()
-        if content.lower() == "quit":
+        if self._is_cancel_message(content):
             self.game_sessions.pop(message.author.id, None)
             await message.channel.send("hit&blow を終了しました。掛け金は没収されます。")
             return
 
-        if not content.isdigit() or len(content) != HIT_BLOW_DIGITS:
+        normalized = _normalize_digits(content)
+        if not normalized.isdigit() or len(normalized) != HIT_BLOW_DIGITS:
             await message.channel.send("3桁の数字で入力してください。")
             return
-        if len(set(content)) != HIT_BLOW_DIGITS:
+        if len(set(normalized)) != HIT_BLOW_DIGITS:
             await message.channel.send("数字は重複なしで入力してください。")
             return
 
         session.attempts_left -= 1
-        hits, blows = self._count_hits_blows(content, session.target)
+        hits, blows = self._count_hits_blows(normalized, session.target)
 
         if hits == HIT_BLOW_DIGITS:
             self.game_sessions.pop(message.author.id, None)
@@ -504,6 +448,10 @@ class BotClient(discord.Client):
     async def _handle_janken_answer(
         self, message: discord.Message, session: JankenSession
     ) -> None:
+        if self._is_cancel_message(message.content):
+            self.game_sessions.pop(message.author.id, None)
+            await message.channel.send("じゃんけんをキャンセルしました。掛け金は没収されます。")
+            return
         choice = self._parse_janken_choice(message.content.strip())
         if choice is None:
             await message.channel.send("グー/チョキ/パーで入力してください。")
@@ -553,8 +501,267 @@ class BotClient(discord.Client):
         if len(args) == 0:
             return None
         for arg in args:
-            if arg.isdigit():
-                return int(arg)
+            normalized = _normalize_digits(arg)
+            if normalized.isdigit():
+                return int(normalized)
+        return None
+
+
+def _normalize_digits(raw: str) -> str:
+    return raw.translate(
+        str.maketrans(
+            "０１２３４５６７８９",
+            "0123456789",
+        )
+    )
+
+    def _start_game_input_session(
+        self,
+        message: discord.Message,
+        *,
+        game: str,
+        bet: int | None,
+        choice: str | None,
+    ) -> None:
+        session = GameInputSession(
+            game=game,
+            bet=bet,
+            choice=choice,
+            started_ts=time.time(),
+            last_activity_ts=time.time(),
+            channel_id=message.channel.id,
+        )
+        self.game_sessions[message.author.id] = session
+
+    async def _handle_game_input_message(
+        self, message: discord.Message, session: GameInputSession
+    ) -> None:
+        raw_args = message.content.strip().split()
+        if session.game in {"slot", "omikuji", "hitblow"}:
+            if session.bet is None:
+                bet = self._parse_bet(raw_args)
+                if bet is None:
+                    await message.channel.send("掛け金を入力してください。")
+                    return
+                bet_error = self._validate_bet(bet)
+                if bet_error is not None:
+                    await message.channel.send(bet_error)
+                    return
+                max_loss_multiplier = 1.5 if session.game == "omikuji" else 1.0
+                can_pay, required, points = self._ensure_balance(
+                    message.guild.id,
+                    message.author.id,
+                    bet,
+                    max_loss_multiplier=max_loss_multiplier,
+                )
+                if not can_pay:
+                    await message.channel.send(
+                        f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+                    )
+                    return
+                session.bet = bet
+
+            if session.game == "slot":
+                self.game_sessions.pop(message.author.id, None)
+                await self._resolve_slot(message, session.bet)
+                return
+            if session.game == "omikuji":
+                self.game_sessions.pop(message.author.id, None)
+                await self._resolve_omikuji(message, session.bet)
+                return
+            if session.game == "hitblow":
+                self.game_sessions.pop(message.author.id, None)
+                await self._start_hit_blow_session(message, session.bet)
+                return
+
+        if session.game in {"janken", "coin"}:
+            parser = (
+                self._parse_janken_choice
+                if session.game == "janken"
+                else self._parse_coin_choice
+            )
+            bet, choice = self._parse_bet_with_choice(raw_args, parser)
+            if session.bet is None and bet is not None:
+                bet_error = self._validate_bet(bet)
+                if bet_error is not None:
+                    await message.channel.send(bet_error)
+                    return
+                can_pay, required, points = self._ensure_balance(
+                    message.guild.id,
+                    message.author.id,
+                    bet,
+                    max_loss_multiplier=1.0,
+                )
+                if not can_pay:
+                    await message.channel.send(
+                        f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+                    )
+                    return
+                session.bet = bet
+            if session.choice is None and choice is not None:
+                session.choice = choice
+
+            if session.bet is None:
+                await message.channel.send("掛け金を入力してください。")
+                return
+            if session.choice is None:
+                prompt = (
+                    "グー/チョキ/パーで入力してください。"
+                    if session.game == "janken"
+                    else "表/裏で入力してください。"
+                )
+                await message.channel.send(prompt)
+                return
+
+            self.game_sessions.pop(message.author.id, None)
+            if session.game == "janken":
+                await self._start_janken_session(message, session.bet, session.choice)
+                return
+            await self._resolve_coin_toss(message, session.bet, session.choice)
+
+    async def _resolve_slot(self, message: discord.Message, bet: int) -> None:
+        bet_error = self._validate_bet(bet)
+        if bet_error is not None:
+            await message.channel.send(bet_error)
+            return
+        can_pay, required, points = self._ensure_balance(
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
+        )
+        if not can_pay:
+            await message.channel.send(
+                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+            )
+            return
+
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
+
+        slot_message = await message.channel.send("🎰 | ??? | ??? | ???")
+        reels = ["❓", "❓", "❓"]
+        for _ in range(SLOT_ANIMATION_STEPS):
+            reels = [random.choice(SLOT_SYMBOLS) for _ in range(3)]
+            await asyncio.sleep(SLOT_ANIMATION_INTERVAL_SECONDS)
+            await slot_message.edit(content=f"🎰 | {reels[0]} | {reels[1]} | {reels[2]} |")
+
+        multiplier = self._slot_multiplier(reels)
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        net = payout - bet
+        result_line = f"結果: {reels[0]} {reels[1]} {reels[2]}"
+        await message.channel.send(
+            f"{result_line}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
+        )
+
+    async def _resolve_omikuji(self, message: discord.Message, bet: int) -> None:
+        bet_error = self._validate_bet(bet)
+        if bet_error is not None:
+            await message.channel.send(bet_error)
+            return
+        can_pay, required, points = self._ensure_balance(
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.5
+        )
+        if not can_pay:
+            await message.channel.send(
+                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+            )
+            return
+
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
+        outcome, multiplier = self._draw_omikuji()
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        net = payout - bet
+        await message.channel.send(
+            f"おみくじ結果: {outcome}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
+        )
+
+    async def _start_hit_blow_session(self, message: discord.Message, bet: int) -> None:
+        bet_error = self._validate_bet(bet)
+        if bet_error is not None:
+            await message.channel.send(bet_error)
+            return
+        can_pay, required, points = self._ensure_balance(
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
+        )
+        if not can_pay:
+            await message.channel.send(
+                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+            )
+            return
+
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
+        target = "".join(random.sample("0123456789", HIT_BLOW_DIGITS))
+        session = HitBlowSession(
+            bet=bet,
+            target=target,
+            attempts_left=HIT_BLOW_MAX_TRIES,
+            started_ts=time.time(),
+            last_activity_ts=time.time(),
+            channel_id=message.channel.id,
+        )
+        self.game_sessions[message.author.id] = session
+        await message.channel.send(
+            "hit&blow を開始します。3桁の数字を入力してください。"
+            f"（試行 {HIT_BLOW_MAX_TRIES} 回 / {self._cancel_words_label()} で終了）"
+        )
+
+    async def _start_janken_session(
+        self, message: discord.Message, bet: int, choice: str
+    ) -> None:
+        can_pay, required, points = self._ensure_balance(
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
+        )
+        if not can_pay:
+            await message.channel.send(
+                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+            )
+            return
+
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
+        session = JankenSession(
+            bet=bet,
+            started_ts=time.time(),
+            last_activity_ts=time.time(),
+            channel_id=message.channel.id,
+        )
+        self.game_sessions[message.author.id] = session
+        await self._resolve_janken(message, session, choice)
+
+    async def _resolve_coin_toss(
+        self, message: discord.Message, bet: int, choice: str
+    ) -> None:
+        can_pay, required, points = self._ensure_balance(
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
+        )
+        if not can_pay:
+            await message.channel.send(
+                f"ポイントが足りません。（必要: {required} / 所持: {points}）"
+            )
+            return
+
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
+        result = random.choice(["heads", "tails"])
+        multiplier = 1.7 if result == choice else 0.0
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        net = payout - bet
+        result_label = COIN_LABELS.get(result, result)
+        choice_label = COIN_LABELS.get(choice, choice)
+        await message.channel.send(
+            f"コイントス: {result_label}（選択: {choice_label}）\n"
+            f"倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
+        )
+
+    @staticmethod
+    def _is_cancel_message(raw: str) -> bool:
+        normalized = raw.strip().lower()
+        return normalized in {word.lower() for word in CANCEL_WORDS}
+
+    @staticmethod
+    def _cancel_words_label() -> str:
+        return "/".join(CANCEL_WORDS)
+
+    @staticmethod
+    def _match_command_prefix(content: str) -> str | None:
+        for prefix in COMMAND_PREFIXES:
+            if content.startswith(prefix):
+                return prefix
         return None
 
     @staticmethod
@@ -564,11 +771,12 @@ class BotClient(discord.Client):
         bet = None
         choice = None
         for arg in args:
-            if bet is None and arg.isdigit():
-                bet = int(arg)
+            normalized = _normalize_digits(arg)
+            if bet is None and normalized.isdigit():
+                bet = int(normalized)
                 continue
             if choice is None:
-                parsed = parser(arg)
+                parsed = parser(normalized)
                 if parsed is not None:
                     choice = parsed
         return bet, choice
@@ -576,21 +784,17 @@ class BotClient(discord.Client):
     @staticmethod
     def _parse_janken_choice(raw: str) -> str | None:
         normalized = raw.strip().lower()
-        if normalized in {"グー", "ぐー", "g", "rock", "r", "✊"}:
-            return "rock"
-        if normalized in {"チョキ", "ちょき", "s", "scissors", "✌"}:
-            return "scissors"
-        if normalized in {"パー", "ぱー", "p", "paper", "✋"}:
-            return "paper"
+        for key, aliases in JANKEN_ALIASES.items():
+            if normalized in {alias.lower() for alias in aliases}:
+                return key
         return None
 
     @staticmethod
     def _parse_coin_choice(raw: str) -> str | None:
         normalized = raw.strip().lower()
-        if normalized in {"表", "おもて", "heads", "head", "h"}:
-            return "heads"
-        if normalized in {"裏", "うら", "tails", "tail", "t"}:
-            return "tails"
+        for key, aliases in COIN_ALIASES.items():
+            if normalized in {alias.lower() for alias in aliases}:
+                return key
         return None
 
     @staticmethod
@@ -606,7 +810,7 @@ class BotClient(discord.Client):
 
     @staticmethod
     def _janken_label(choice: str) -> str:
-        return {"rock": "グー", "scissors": "チョキ", "paper": "パー"}.get(choice, choice)
+        return JANKEN_LABELS.get(choice, choice)
 
     @staticmethod
     def _count_hits_blows(guess: str, target: str) -> tuple[int, int]:
