@@ -23,3 +23,7 @@ COIN_ALIASES = {
     "heads": {"表", "おもて", "heads", "head", "h", "0", "true", "omote"},
     "tails": {"裏", "うら", "tails", "tail", "t", "1", "false", "ura"},
 }
+
+SLOT_SYMBOLS = ["🍒", "🍋", "🍇", "🔔", "⭐", "💎"]
+
+SLOT_RARE_SYMBOLS = {"💎"}

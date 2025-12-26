@@ -9,6 +9,7 @@ import time
 import discord
 from discord.ext import tasks
 
+from bot.constants import SLOT_RARE_SYMBOLS, SLOT_SYMBOLS
 from bot.constants import (
     CANCEL_WORDS,
     COIN_ALIASES,
@@ -30,9 +31,6 @@ SLOT_ANIMATION_INTERVAL_SECONDS = 0.6
 
 VOICE_POINT_INTERVAL_SECONDS = 7 * 60
 VOICE_TICK_SECONDS = 60
-
-SLOT_SYMBOLS = ["🍒", "🍋", "🍇", "🔔", "⭐", "💎"]
-SLOT_RARE_SYMBOLS = {"💎"}
 
 
 @dataclass
@@ -83,7 +81,9 @@ class BotClient(discord.Client):
         self.tree = discord.app_commands.CommandTree(self)
         self.points_repo = points_repo
         self.voice_sessions: dict[int, VoiceSession] = {}
-        self.game_sessions: dict[int, HitBlowSession | JankenSession | GameInputSession] = {}
+        self.game_sessions: dict[
+            int, HitBlowSession | JankenSession | GameInputSession
+        ] = {}
         self.game_cooldowns: dict[int, float] = {}
 
     async def on_ready(self) -> None:
@@ -251,7 +251,9 @@ class BotClient(discord.Client):
         user_id = message.author.id
         last_ts = self.game_cooldowns.get(user_id)
         if last_ts is not None and now - last_ts < GAME_COOLDOWN_SECONDS:
-            await message.channel.send("クールタイム中です。少し待ってから実行してください。")
+            await message.channel.send(
+                "クールタイム中です。少し待ってから実行してください。"
+            )
             return True
         self.game_cooldowns[user_id] = now
         return False
@@ -299,9 +301,7 @@ class BotClient(discord.Client):
 
         return False
 
-    async def _handle_game_command(
-        self, message: discord.Message, prefix: str
-    ) -> None:
+    async def _handle_game_command(self, message: discord.Message, prefix: str) -> None:
         content = message.content.strip()
         if not content.startswith(prefix):
             return
@@ -314,7 +314,9 @@ class BotClient(discord.Client):
         args = parts[1:]
 
         if message.author.id in self.game_sessions:
-            await message.channel.send("進行中のゲームがあるため、新しいゲームは開始できません。")
+            await message.channel.send(
+                "進行中のゲームがあるため、新しいゲームは開始できません。"
+            )
             return
 
         if command in {"slot"}:
@@ -339,31 +341,45 @@ class BotClient(discord.Client):
         bet = self._parse_bet(args)
         if bet is None:
             self._start_game_input_session(message, game="slot", bet=None, choice=None)
-            await message.channel.send("スロットを開始します。掛け金を入力してください。")
+            await message.channel.send(
+                "スロットを開始します。賭けるポイントを入力してください。"
+            )
             return
         await self._resolve_slot(message, bet)
 
     async def _start_omikuji(self, message: discord.Message, args: list[str]) -> None:
         bet = self._parse_bet(args)
         if bet is None:
-            self._start_game_input_session(message, game="omikuji", bet=None, choice=None)
-            await message.channel.send("おみくじを開始します。掛け金を入力してください。")
+            self._start_game_input_session(
+                message, game="omikuji", bet=None, choice=None
+            )
+            await message.channel.send(
+                "おみくじを開始します。賭けるポイントを入力してください。"
+            )
             return
         await self._resolve_omikuji(message, bet)
 
     async def _start_hit_blow(self, message: discord.Message, args: list[str]) -> None:
         bet = self._parse_bet(args)
         if bet is None:
-            self._start_game_input_session(message, game="hitblow", bet=None, choice=None)
-            await message.channel.send("hit&blow を開始します。掛け金を入力してください。")
+            self._start_game_input_session(
+                message, game="hitblow", bet=None, choice=None
+            )
+            await message.channel.send(
+                "hit&blow を開始します。賭けるポイントを入力してください。"
+            )
             return
         await self._start_hit_blow_session(message, bet)
 
     async def _start_janken(self, message: discord.Message, args: list[str]) -> None:
         bet, choice = self._parse_bet_with_choice(args, self._parse_janken_choice)
         if bet is None:
-            self._start_game_input_session(message, game="janken", bet=None, choice=choice)
-            await message.channel.send("じゃんけん開始！掛け金を入力してください。")
+            self._start_game_input_session(
+                message, game="janken", bet=None, choice=choice
+            )
+            await message.channel.send(
+                "じゃんけん開始！賭けるポイントを入力してください。"
+            )
             return
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
@@ -372,7 +388,9 @@ class BotClient(discord.Client):
 
         if choice is None:
             self._start_game_input_session(message, game="janken", bet=bet, choice=None)
-            await message.channel.send("じゃんけん開始！グー/チョキ/パーで返答してください。")
+            await message.channel.send(
+                "じゃんけん開始！グー/チョキ/パーで返答してください。"
+            )
             return
 
         await self._start_janken_session(message, bet, choice)
@@ -394,7 +412,9 @@ class BotClient(discord.Client):
                     )
                     return
             self._start_game_input_session(message, game="coin", bet=bet, choice=choice)
-            await message.channel.send("コイントス開始！掛け金と表/裏を入力してください。")
+            await message.channel.send(
+                "コイントス開始！賭けるポイントと表/裏を入力してください。"
+            )
             return
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
@@ -409,7 +429,9 @@ class BotClient(discord.Client):
         content = message.content.strip()
         if self._is_cancel_message(content):
             self.game_sessions.pop(message.author.id, None)
-            await message.channel.send("hit&blow を終了しました。掛け金は没収されます。")
+            await message.channel.send(
+                "hit&blow を終了しました。賭けるポイントは没収されます。"
+            )
             return
 
         normalized = _normalize_digits(content)
@@ -437,7 +459,7 @@ class BotClient(discord.Client):
         if session.attempts_left <= 0:
             self.game_sessions.pop(message.author.id, None)
             await message.channel.send(
-                f"残念！正解は {session.target} でした。掛け金は没収されます。"
+                f"残念！正解は {session.target} でした。賭けるポイントは没収されます。"
             )
             return
 
@@ -450,7 +472,9 @@ class BotClient(discord.Client):
     ) -> None:
         if self._is_cancel_message(message.content):
             self.game_sessions.pop(message.author.id, None)
-            await message.channel.send("じゃんけんをキャンセルしました。掛け金は没収されます。")
+            await message.channel.send(
+                "じゃんけんをキャンセルしました。賭けるポイントは没収されます。"
+            )
             return
         choice = self._parse_janken_choice(message.content.strip())
         if choice is None:
@@ -482,9 +506,9 @@ class BotClient(discord.Client):
 
     def _validate_bet(self, bet: int) -> str | None:
         if bet <= 0:
-            return "掛け金は1以上で指定してください。"
+            return "賭けるポイントは1以上で指定してください。"
         if bet < MIN_BET:
-            return f"掛け金は {MIN_BET} 以上で指定してください。"
+            return f"賭けるポイントは {MIN_BET} 以上で指定してください。"
         return None
 
     def _ensure_balance(
@@ -532,7 +556,7 @@ class BotClient(discord.Client):
             if session.bet is None:
                 bet = self._parse_bet(raw_args)
                 if bet is None:
-                    await message.channel.send("掛け金を入力してください。")
+                    await message.channel.send("賭けるポイントを入力してください。")
                     return
                 bet_error = self._validate_bet(bet)
                 if bet_error is not None:
@@ -593,7 +617,7 @@ class BotClient(discord.Client):
                 session.choice = choice
 
             if session.bet is None:
-                await message.channel.send("掛け金を入力してください。")
+                await message.channel.send("賭けるポイントを入力してください。")
                 return
             if session.choice is None:
                 prompt = (
@@ -609,6 +633,7 @@ class BotClient(discord.Client):
                 await self._start_janken_session(message, session.bet, session.choice)
                 return
             await self._resolve_coin_toss(message, session.bet, session.choice)
+
     async def _resolve_slot(self, message: discord.Message, bet: int) -> None:
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
@@ -630,10 +655,14 @@ class BotClient(discord.Client):
         for _ in range(SLOT_ANIMATION_STEPS):
             reels = [random.choice(SLOT_SYMBOLS) for _ in range(3)]
             await asyncio.sleep(SLOT_ANIMATION_INTERVAL_SECONDS)
-            await slot_message.edit(content=f"🎰 | {reels[0]} | {reels[1]} | {reels[2]} |")
+            await slot_message.edit(
+                content=f"🎰 | {reels[0]} | {reels[1]} | {reels[2]} |"
+            )
 
         multiplier = self._slot_multiplier(reels)
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        payout = self._apply_payout(
+            message.guild.id, message.author.id, bet, multiplier
+        )
         net = payout - bet
         result_line = f"結果: {reels[0]} {reels[1]} {reels[2]}"
         await message.channel.send(
@@ -656,7 +685,9 @@ class BotClient(discord.Client):
 
         self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         outcome, multiplier = self._draw_omikuji()
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        payout = self._apply_payout(
+            message.guild.id, message.author.id, bet, multiplier
+        )
         net = payout - bet
         await message.channel.send(
             f"おみくじ結果: {outcome}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
@@ -729,7 +760,9 @@ class BotClient(discord.Client):
         self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         result = random.choice(["heads", "tails"])
         multiplier = 1.7 if result == choice else 0.0
-        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
+        payout = self._apply_payout(
+            message.guild.id, message.author.id, bet, multiplier
+        )
         net = payout - bet
         result_label = COIN_LABELS.get(result, result)
         choice_label = COIN_LABELS.get(choice, choice)

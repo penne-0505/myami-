@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from service.repository import PointsRepository
+from data.repository import PointsRepository
 
 
 class PointsServiceError(Exception):
