@@ -6,7 +6,7 @@ created_at: 2025-12-26
 updated_at: 2025-12-26
 references:
   - _docs/reference/database/points_repository.md
-  - _docs/reference/app/container.md
+  - _docs/reference/app/facade.md
   - _docs/guide/deployment/railway.md
 related_issues: []
 related_prs: []
@@ -41,9 +41,9 @@ SQLite から Supabase(PostgreSQL) へデータストアを移行し、Discord �
 - Supabase 接続方式を決定（PostgreSQL 直結 or Supabase Python SDK）。
 - `Database` 抽象/実装を Supabase(PostgreSQL) 向けに更新し、トランザクション対応を行う。
 - `points` テーブル作成 SQL を追加し、起動時に `ensure_schema()` で実行する。
-- `app/container.py` の設定ローダーに Supabase 用環境変数を追加する。
+- `app/facade.py` の設定ローダーに Supabase 用環境変数を追加する。
 - ドキュメント更新:
-  - `_docs/reference/app/container.md`
+  - `_docs/reference/app/facade.md`
   - `_docs/reference/database/points_repository.md`
   - `_docs/guide/deployment/railway.md`
 

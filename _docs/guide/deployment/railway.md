@@ -5,7 +5,7 @@ draft_status: n/a
 created_at: 2025-12-24
 updated_at: 2025-12-26
 references:
-  - _docs/reference/app/container.md
+  - _docs/reference/app/facade.md
   - _docs/reference/app/bot_client.md
 related_issues: []
 related_prs: []

@@ -10,7 +10,7 @@ related_prs: []
 ---
 
 ## Overview
-`PointsRepository` はポイント管理のユースケースを集約するデータアクセス層。Supabase(PostgreSQL) を前提とした `Database` に依存し、Discord側のコマンド実装からDB操作を抽象化する。ポイントは guild 単位で分離される。
+`PointsRepository` はポイント管理のデータアクセス層。Supabase(PostgreSQL) を前提とした `Database` に依存し、`PointsService` からDB操作を抽象化する。ポイントは guild 単位で分離される。
 
 ## Notes
 - Supabase では RPC 関数 `ensure_points_schema` / `add_points` / `transfer_points` を利用する。
@@ -35,4 +35,4 @@ related_prs: []
 - `get_role_buy_price(guild_id: int, role_id: int)` -> int | None: ロール購入の価格を取得する。
 
 ## Usage
-アプリ起動時に `ensure_schema()` を実行し、各コマンドでは `PointsRepository` のユースケースメソッドを呼び出す。
+アプリ起動時に `ensure_schema()` を実行し、`PointsService` から各メソッドを呼び出す。

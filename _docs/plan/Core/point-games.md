@@ -6,7 +6,7 @@ created_at: 2025-12-26
 updated_at: 2025-12-26
 references:
   - _docs/reference/app/bot_client.md
-  - _docs/reference/app/container.md
+  - _docs/reference/app/facade.md
   - _docs/reference/database/points_repository.md
 related_issues: []
 related_prs: []

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bot.client import BotClient, create_client
 from service.database import Database, DatabaseError
+from service.points_service import PointsService
 from service.repository import PointsRepository
 
 from command_registry import register_commands
@@ -31,5 +32,6 @@ def create_bot_client(config: AppConfig) -> BotClient:
         raise
     print("[startup] DB schema OK")
     client = create_client(points_repo=points_repo)
-    register_commands(client, points_repo=points_repo)
+    points_service = PointsService(points_repo)
+    register_commands(client, points_service=points_service)
     return client
