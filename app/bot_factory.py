@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from bot.client import BotClient, create_client
-from service.database import Database, DatabaseError
+from data.database import Database, DatabaseError
 from service.points_service import PointsService
-from service.repository import PointsRepository
+from data.repository import PointsRepository
 
 from app.command_registry import register_commands
 from app.settings import AppConfig, describe_db_settings

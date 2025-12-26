@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 9` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 11` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -205,6 +205,22 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 
 ## Backlog
 
+- **Title**: [Enhance] ゲーム入力の対話式フロー化
+- **ID**: Core-Enhance-9
+- **Priority**: P1
+- **Size**: M
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: すべてのポイント賭けゲームが掛け金・選択肢を対話的に取得し、1メッセージ入力に依存しない進行になる。
+- **Steps**:
+  1. [ ] `bot/client.py` のゲーム開始/セッション処理の現状フローを整理する
+  2. [ ] ゲーム別の入力ステップ設計（掛け金/選択肢/回答）を Plan に記述する
+  3. [ ] 対話式入力フローに合わせてセッション構造と入力処理を更新する
+  4. [ ] 失敗・タイムアウト・キャンセル時の挙動を揃える
+  5. [ ] ユーザー向けガイドとリファレンスを更新する
+- **Description**: スラッシュコマンドのように引数を一度に受け取るのではなく、メッセージの往復で掛け金や選択肢を取得するゲームフローへ変更する。
+- **Plan**: _docs/plan/Core/interactive-game-input.md
+
 - **Title**: [Enhance] Startup DB check and error logging
 - **ID**: Core-Enhance-6
 - **Priority**: P1
@@ -239,6 +255,24 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 ---
 
 ## Ready
+
+- **Title**: [Refactor] BotClient ユースケース分離
+- **ID**: Core-Refactor-10
+- **Priority**: P1
+- **Size**: L
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: BotClient が I/O アダプタに限定され、メッセージ/VC/ゲーム処理がユースケース層に分離されている。
+- **Steps**:
+  1. [ ] Plan の "Migration Plan (Stepwise)" に従い VoicePoints 分離を先行実装する
+  2. [ ] Plan の "Migration Plan (Stepwise)" に従い PointGame 分離と GameSessionStore を導入する
+  3. [ ] Plan の "Migration Plan (Stepwise)" に従い Game Registry 導入と各ゲーム移行を行う
+  4. [ ] Plan の "Migration Plan (Stepwise)" に従い MessagePoints 分離を行う
+  5. [ ] Plan の "Tasks" と "Compatibility Checklist" を満たすことを確認する
+  6. [ ] Plan の "Test Plan" に従い手動確認を実施する
+  7. [ ] Plan の "Tasks" に従い参照ドキュメントを更新する
+- **Description**: BotClient に集中しているメッセージ/VC/ゲーム処理をユースケース層に分離し、拡張性とテスト容易性を高める。
+- **Plan**: _docs/plan/Core/bot-client-usecase-separation.md
 
 ---
 

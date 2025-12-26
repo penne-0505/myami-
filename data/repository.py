@@ -1,4 +1,4 @@
-from service.database import Database
+from data.database import Database
 
 
 from typing import Any

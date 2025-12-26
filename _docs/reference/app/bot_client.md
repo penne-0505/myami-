@@ -13,7 +13,7 @@ related_prs: []
 ---
 
 ## Overview
-`BotClient` は Discord のイベントを受け取り、ポイント付与やコマンド実行に必要な依存を保持する。実装は `bot/client.py` にある。
+`BotClient` は Discord のイベントを受け取り、ユースケース層（メッセージポイント、VCポイント、ポイントゲーム）へ委譲する I/O アダプタである。実装は `bot/client.py` と `bot/handlers/` にある。
 
 ## Behavior
 - Bot からのメッセージは無視する。
@@ -25,8 +25,8 @@ related_prs: []
 
 ## API
 - `on_ready()` -> None: スラッシュコマンドを同期し、起動ログを出力する。
-- `on_message(message: discord.Message)` -> None: メッセージ受信時にポイントを加算し、ゲームコマンド/セッション入力を処理する。
-- `on_voice_state_update(...)` -> None: VC接続状態の更新を受け取り、影響するチャンネル内メンバーのセッションを更新して経過時間を加算する。
+- `on_message(message: discord.Message)` -> None: メッセージ受信時にポイントを加算し、ゲームコマンド/セッション入力をユースケースへ委譲する。
+- `on_voice_state_update(...)` -> None: VC接続状態の更新を受け取り、VCポイントのユースケースへ委譲する。
 
 ## Usage
 `create_client(points_repo=...)` で生成し、`command_registry.register_commands(points_service=...)` または `facade.register_commands()` でコマンド登録を行う。
