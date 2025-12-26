@@ -82,7 +82,7 @@ class BotClient(discord.Client):
             return
 
         user_id = message.author.id
-        self.points_repo.award_point_for_message(user_id)
+        self.points_repo.award_point_for_message(message.guild.id, user_id)
 
         handled_session = await self._handle_game_session_message(message)
         if handled_session:
@@ -161,7 +161,7 @@ class BotClient(discord.Client):
             return
         points = int(session.carry_seconds // VOICE_POINT_INTERVAL_SECONDS)
         session.carry_seconds -= points * VOICE_POINT_INTERVAL_SECONDS
-        self.points_repo.add_points(user_id, points)
+        self.points_repo.add_points(session.guild_id, user_id, points)
 
     def _refresh_voice_channels(
         self,
@@ -312,7 +312,7 @@ class BotClient(discord.Client):
             await message.channel.send(bet_error)
             return
         can_pay, required, points = self._ensure_balance(
-            message.author.id, bet, max_loss_multiplier=1.0
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
         )
         if not can_pay:
             await message.channel.send(
@@ -320,7 +320,7 @@ class BotClient(discord.Client):
             )
             return
 
-        self.points_repo.add_points(message.author.id, -bet)
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
 
         slot_message = await message.channel.send("🎰 | ??? | ??? | ???")
         reels = ["❓", "❓", "❓"]
@@ -330,7 +330,7 @@ class BotClient(discord.Client):
             await slot_message.edit(content=f"🎰 | {reels[0]} | {reels[1]} | {reels[2]} |")
 
         multiplier = self._slot_multiplier(reels)
-        payout = self._apply_payout(message.author.id, bet, multiplier)
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
         net = payout - bet
         result_line = f"結果: {reels[0]} {reels[1]} {reels[2]}"
         await message.channel.send(
@@ -347,7 +347,7 @@ class BotClient(discord.Client):
             await message.channel.send(bet_error)
             return
         can_pay, required, points = self._ensure_balance(
-            message.author.id, bet, max_loss_multiplier=1.5
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.5
         )
         if not can_pay:
             await message.channel.send(
@@ -355,9 +355,9 @@ class BotClient(discord.Client):
             )
             return
 
-        self.points_repo.add_points(message.author.id, -bet)
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         outcome, multiplier = self._draw_omikuji()
-        payout = self._apply_payout(message.author.id, bet, multiplier)
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
         net = payout - bet
         await message.channel.send(
             f"おみくじ結果: {outcome}\n倍率: x{multiplier:.1f} / 差引: {net:+}ポイント"
@@ -373,7 +373,7 @@ class BotClient(discord.Client):
             await message.channel.send(bet_error)
             return
         can_pay, required, points = self._ensure_balance(
-            message.author.id, bet, max_loss_multiplier=1.0
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
         )
         if not can_pay:
             await message.channel.send(
@@ -381,7 +381,7 @@ class BotClient(discord.Client):
             )
             return
 
-        self.points_repo.add_points(message.author.id, -bet)
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         target = "".join(random.sample("0123456789", HIT_BLOW_DIGITS))
         session = HitBlowSession(
             bet=bet,
@@ -407,7 +407,7 @@ class BotClient(discord.Client):
             await message.channel.send(bet_error)
             return
         can_pay, required, points = self._ensure_balance(
-            message.author.id, bet, max_loss_multiplier=1.0
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
         )
         if not can_pay:
             await message.channel.send(
@@ -415,7 +415,7 @@ class BotClient(discord.Client):
             )
             return
 
-        self.points_repo.add_points(message.author.id, -bet)
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         session = JankenSession(
             bet=bet,
             started_ts=time.time(),
@@ -440,7 +440,7 @@ class BotClient(discord.Client):
             await message.channel.send(bet_error)
             return
         can_pay, required, points = self._ensure_balance(
-            message.author.id, bet, max_loss_multiplier=1.0
+            message.guild.id, message.author.id, bet, max_loss_multiplier=1.0
         )
         if not can_pay:
             await message.channel.send(
@@ -448,10 +448,10 @@ class BotClient(discord.Client):
             )
             return
 
-        self.points_repo.add_points(message.author.id, -bet)
+        self.points_repo.add_points(message.guild.id, message.author.id, -bet)
         result = random.choice(["heads", "tails"])
         multiplier = 1.7 if result == choice else 0.0
-        payout = self._apply_payout(message.author.id, bet, multiplier)
+        payout = self._apply_payout(message.guild.id, message.author.id, bet, multiplier)
         net = payout - bet
         result_label = "表" if result == "heads" else "裏"
         choice_label = "表" if choice == "heads" else "裏"
@@ -481,7 +481,9 @@ class BotClient(discord.Client):
 
         if hits == HIT_BLOW_DIGITS:
             self.game_sessions.pop(message.author.id, None)
-            payout = self._apply_payout(message.author.id, session.bet, 3.0)
+            payout = self._apply_payout(
+                message.guild.id, message.author.id, session.bet, 3.0
+            )
             net = payout - session.bet
             await message.channel.send(
                 f"🎉 正解！ {session.target}\n倍率: x3.0 / 差引: {net:+}ポイント"
@@ -518,7 +520,9 @@ class BotClient(discord.Client):
             return
         self.game_sessions.pop(message.author.id, None)
         multiplier = 2.0 if result == "win" else 0.0
-        payout = self._apply_payout(message.author.id, session.bet, multiplier)
+        payout = self._apply_payout(
+            message.guild.id, message.author.id, session.bet, multiplier
+        )
         net = payout - session.bet
         choice_label = self._janken_label(choice)
         opponent_label = self._janken_label(opponent)
@@ -536,9 +540,9 @@ class BotClient(discord.Client):
         return None
 
     def _ensure_balance(
-        self, user_id: int, bet: int, *, max_loss_multiplier: float
+        self, guild_id: int, user_id: int, bet: int, *, max_loss_multiplier: float
     ) -> tuple[bool, int, int]:
-        points = self.points_repo.get_user_points(user_id) or 0
+        points = self.points_repo.get_user_points(guild_id, user_id) or 0
         required = int(math.ceil(bet * max_loss_multiplier))
         return points >= required, required, points
 
@@ -636,10 +640,12 @@ class BotClient(discord.Client):
         selected = random.choices(outcomes, weights=weights, k=1)[0]
         return selected[0], selected[1]
 
-    def _apply_payout(self, user_id: int, bet: int, multiplier: float) -> int:
+    def _apply_payout(
+        self, guild_id: int, user_id: int, bet: int, multiplier: float
+    ) -> int:
         payout = int(round(bet * multiplier))
         if payout != 0:
-            self.points_repo.add_points(user_id, payout)
+            self.points_repo.add_points(guild_id, user_id, payout)
         return payout
 
 

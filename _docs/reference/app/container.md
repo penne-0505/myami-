@@ -26,7 +26,8 @@ related_prs: []
 - Supabase への接続情報が不足している場合は起動時にエラーとなる。
 - 起動時に DB 接続確認を行い、失敗時はログ出力して起動を中止する。
 - 起動時に `points` スキーマの初期化を行い、結果をログ出力する。
-- `/remove` はサーバー管理権限保持者、または `point_remove_permissions` に登録済みのユーザーのみ実行できる。
+- `/point` `/rank` `/send` `/remove` はサーバー内でのみ実行できる。
+- `/remove` はサーバー管理権限保持者、または `point_remove_permissions`（guild 単位）に登録済みのユーザーのみ実行できる。
 - `/permit-remove` はサーバー管理権限保持者のみ実行できる。
 - `/clan-register` は設定済みの通知チャンネルへ申請内容を送信する。
 - `/clan-register-channel` はサーバー管理権限保持者のみ実行できる。

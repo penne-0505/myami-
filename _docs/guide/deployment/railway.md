@@ -36,6 +36,13 @@ related_prs: []
 Supabase の SQL Editor で `supabase/supabase_init.sql` を実行し、
 `points` テーブルと RPC 関数を作成する。
 
+### Guild Scoping Migration
+
+既存データがある場合は、`supabase/supabase_init.sql` 末尾の migration セクションを実行して
+`points` と `point_remove_permissions` を guild 単位に移行する。
+
+- 既存ポイントは `746587719827980359` に一括で割り当てる。
+
 ## Notes
 
 - Variables 画面では Raw Editor で `.env` を貼り付けられるため、まとめて設定する場合に活用する。

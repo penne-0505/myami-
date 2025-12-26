@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 7` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 8` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -219,6 +219,22 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
   4. [ ] 失敗時のガイダンスを `_docs/guide/deployment/railway.md` に追記
 - **Description**: Bot 起動時にDB接続の健全性確認とログ出力を行い、失敗時の原因把握を容易にする。
 - **Plan**: None
+
+- **Title**: [Enhance] Guild-scoped points
+- **ID**: Core-Enhance-7
+- **Priority**: P1
+- **Size**: M
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: ポイントが guild ごとに分離され、同一ユーザーでもサーバー間で独立したポイントを保持できる。
+- **Steps**:
+  1. [ ] Plan の "DB" に従い `points` / `point_remove_permissions` / RPC の schema を更新する
+  2. [ ] Plan の "App/Service" に従い API とコマンド実装を guild 対応へ更新する
+  3. [ ] Plan の "Docs" に従い reference/guide を更新する
+  4. [ ] Plan の "Test Plan" に従い guild 分離の動作を確認する
+  5. [ ] 既存ポイントの移行方針を確定し、必要な移行手順を実行する
+- **Description**: ポイントや権限管理を guild 単位に分割し、サーバー間の干渉を防ぐ。
+- **Plan**: _docs/plan/Core/guild-scoped-points.md
 
 ---
 

@@ -71,18 +71,22 @@ class Database:
                 "_docs/guide/deployment/railway.md."
             ) from exc
 
-    def ensure_user(self, user_id: int) -> None:
+    def ensure_user(self, guild_id: int, user_id: int) -> None:
         response = (
             self._client.table("points")
-            .upsert({"user_id": user_id, "points": 0}, on_conflict="user_id")
+            .upsert(
+                {"guild_id": guild_id, "user_id": user_id, "points": 0},
+                on_conflict="guild_id,user_id",
+            )
             .execute()
         )
         self._unwrap(response, context="ensure_user")
 
-    def get_points(self, user_id: int) -> int | None:
+    def get_points(self, guild_id: int, user_id: int) -> int | None:
         response = (
             self._client.table("points")
             .select("points")
+            .eq("guild_id", guild_id)
             .eq("user_id", user_id)
             .limit(1)
             .execute()
@@ -92,18 +96,20 @@ class Database:
             return None
         return int(data[0]["points"])
 
-    def add_points(self, user_id: int, delta: int) -> int:
+    def add_points(self, guild_id: int, user_id: int, delta: int) -> int:
         response = self._client.rpc(
-            "add_points", {"p_user_id": user_id, "p_delta": delta}
+            "add_points",
+            {"p_guild_id": guild_id, "p_user_id": user_id, "p_delta": delta},
         ).execute()
         data = self._unwrap(response, context="add_points")
         value = self._extract_scalar(data)
         return 0 if value is None else int(value)
 
-    def top_rank(self, limit: int = 10) -> list[dict[str, Any]]:
+    def top_rank(self, guild_id: int, limit: int = 10) -> list[dict[str, Any]]:
         response = (
             self._client.table("points")
             .select("user_id, points")
+            .eq("guild_id", guild_id)
             .order("points", desc=True)
             .limit(limit)
             .execute()
@@ -111,12 +117,15 @@ class Database:
         data = self._unwrap(response, context="top_rank")
         return [] if data is None else list(data)
 
-    def transfer(self, sender_id: int, recipient_id: int, points: int) -> bool:
+    def transfer(
+        self, guild_id: int, sender_id: int, recipient_id: int, points: int
+    ) -> bool:
         if points <= 0:
             return False
         response = self._client.rpc(
             "transfer_points",
             {
+                "p_guild_id": guild_id,
                 "p_sender_id": sender_id,
                 "p_recipient_id": recipient_id,
                 "p_points": points,
@@ -126,10 +135,11 @@ class Database:
         value = self._extract_scalar(data)
         return bool(value)
 
-    def has_remove_permission(self, user_id: int) -> bool:
+    def has_remove_permission(self, guild_id: int, user_id: int) -> bool:
         response = (
             self._client.table("point_remove_permissions")
             .select("user_id")
+            .eq("guild_id", guild_id)
             .eq("user_id", user_id)
             .limit(1)
             .execute()
@@ -137,18 +147,22 @@ class Database:
         data = self._unwrap(response, context="has_remove_permission")
         return bool(data)
 
-    def grant_remove_permission(self, user_id: int) -> None:
+    def grant_remove_permission(self, guild_id: int, user_id: int) -> None:
         response = (
             self._client.table("point_remove_permissions")
-            .upsert({"user_id": user_id}, on_conflict="user_id")
+            .upsert(
+                {"guild_id": guild_id, "user_id": user_id},
+                on_conflict="guild_id,user_id",
+            )
             .execute()
         )
         self._unwrap(response, context="grant_remove_permission")
 
-    def revoke_remove_permission(self, user_id: int) -> bool:
+    def revoke_remove_permission(self, guild_id: int, user_id: int) -> bool:
         response = (
             self._client.table("point_remove_permissions")
             .delete()
+            .eq("guild_id", guild_id)
             .eq("user_id", user_id)
             .execute()
         )
