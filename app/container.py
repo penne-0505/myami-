@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from bot.client import BotClient, create_client
 from service.database import Database, DatabaseError
-from app.config import load_token
+from config import load_token
 from dotenv import load_dotenv
 from dataclasses import dataclass
 from pathlib import Path
