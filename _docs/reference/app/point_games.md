@@ -29,6 +29,12 @@ related_prs: []
 - 掛け金・選択肢は対話的に取得する（引数が指定されている場合はスキップ）。
 - キャンセル判定は `bot/constants.py` の `CANCEL_WORDS` を参照する。
 
+## Implementation Notes
+- `bot/handlers/point_game_handler.py` がメッセージ入力を受け取り、ゲーム進行を管理する。
+- `service/games/registry.py` の `GameRegistry` に各ゲームを登録する。
+- ゲーム実装は `service/games/` の `BaseGame` 実装として配置する。
+- セッション状態は `service/sessions/game_sessions.py` に集約する。
+
 ## Games
 ### Slot
 - コマンド: `m.slot [掛け金]`

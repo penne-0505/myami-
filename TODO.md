@@ -2,7 +2,7 @@
 
 ## 0. System Metadata
 
-- **Current Max ID**: `Next ID No: 10` (※タスク追加時にインクリメント必須)
+- **Current Max ID**: `Next ID No: 11` (※タスク追加時にインクリメント必須)
 - **ID Source of Truth**: このファイルの `Next ID No` 行が、全プロジェクトにおける唯一の ID 発番元である。
 
 ## 1. Task Lifecycle (State Machine)
@@ -255,6 +255,24 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 ---
 
 ## Ready
+
+- **Title**: [Refactor] BotClient ユースケース分離
+- **ID**: Core-Refactor-10
+- **Priority**: P1
+- **Size**: L
+- **Area**: Core
+- **Dependencies**: []
+- **Goal**: BotClient が I/O アダプタに限定され、メッセージ/VC/ゲーム処理がユースケース層に分離されている。
+- **Steps**:
+  1. [ ] Plan の "Migration Plan (Stepwise)" に従い VoicePoints 分離を先行実装する
+  2. [ ] Plan の "Migration Plan (Stepwise)" に従い PointGame 分離と GameSessionStore を導入する
+  3. [ ] Plan の "Migration Plan (Stepwise)" に従い Game Registry 導入と各ゲーム移行を行う
+  4. [ ] Plan の "Migration Plan (Stepwise)" に従い MessagePoints 分離を行う
+  5. [ ] Plan の "Tasks" と "Compatibility Checklist" を満たすことを確認する
+  6. [ ] Plan の "Test Plan" に従い手動確認を実施する
+  7. [ ] Plan の "Tasks" に従い参照ドキュメントを更新する
+- **Description**: BotClient に集中しているメッセージ/VC/ゲーム処理をユースケース層に分離し、拡張性とテスト容易性を高める。
+- **Plan**: _docs/plan/Core/bot-client-usecase-separation.md
 
 ---
 

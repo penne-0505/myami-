@@ -22,6 +22,6 @@ VC接続中の滞在時間に応じてポイントを付与するための仕様
 - 状態はメモリ上で保持し、Bot再起動でリセットされる。
 
 ## Implementation Notes
-- `bot/client.py` の `BotClient` がVCセッションを管理する。
-- `on_voice_state_update` で接続・切断・状態変化を検出し、対象チャンネル内の全メンバーのセッションを更新して加点判定を揃える。
+- `bot/handlers/voice_points_handler.py` の `VoicePointsHandler` がVCセッションを管理する。
+- `handle_state_update` で接続・切断・状態変化を検出し、対象チャンネル内の全メンバーのセッションを更新して加点判定を揃える。
 - `voice_award_loop` が一定間隔でポイント付与を実行する。
