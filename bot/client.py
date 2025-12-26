@@ -506,15 +506,6 @@ class BotClient(discord.Client):
                 return int(normalized)
         return None
 
-
-def _normalize_digits(raw: str) -> str:
-    return raw.translate(
-        str.maketrans(
-            "０１２３４５６７８９",
-            "0123456789",
-        )
-    )
-
     def _start_game_input_session(
         self,
         message: discord.Message,
@@ -618,7 +609,6 @@ def _normalize_digits(raw: str) -> str:
                 await self._start_janken_session(message, session.bet, session.choice)
                 return
             await self._resolve_coin_toss(message, session.bet, session.choice)
-
     async def _resolve_slot(self, message: discord.Message, bet: int) -> None:
         bet_error = self._validate_bet(bet)
         if bet_error is not None:
@@ -851,6 +841,15 @@ def _normalize_digits(raw: str) -> str:
         if payout != 0:
             self.points_repo.add_points(guild_id, user_id, payout)
         return payout
+
+
+def _normalize_digits(raw: str) -> str:
+    return raw.translate(
+        str.maketrans(
+            "０１２３４５６７８９",
+            "0123456789",
+        )
+    )
 
 
 def create_client(*, points_repo) -> BotClient:
