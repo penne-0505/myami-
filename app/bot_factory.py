@@ -6,10 +6,13 @@ from service.points_service import PointsService
 from service.repository import PointsRepository
 
 from app.command_registry import register_commands
-from app.settings import AppConfig
+from app.settings import AppConfig, describe_db_settings
 
 
 def create_bot_client(config: AppConfig) -> BotClient:
+    diagnostics = describe_db_settings(config.db_settings)
+    print(f"[startup] Supabase host: {diagnostics['supabase_host']}")
+    print(f"[startup] Supabase role: {diagnostics['service_role']}")
     db = Database(
         url=config.db_settings.supabase_url,
         service_role_key=config.db_settings.service_role_key,
