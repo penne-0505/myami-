@@ -22,32 +22,34 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
     @tree.command(name="point", description="あなたの現在のポイントを表示します")
     async def point_command(interaction: discord.Interaction) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
+        await _defer_if_needed(interaction)
         user_id = interaction.user.id
         points = points_service.get_user_points(interaction.guild.id, user_id)
         if points is None:
-            await interaction.response.send_message("まだポイントがありません。")
+            await _send_message(interaction, "まだポイントがありません。")
             return
         embed = discord.Embed(
             title=f"{interaction.user.display_name}の",
             description=f"{points}ポイント",
             color=0x4EF47D,
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(name="rank", description="ランキング上位10名を表示します。")
     async def rank_command(interaction: discord.Interaction) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
+        await _defer_if_needed(interaction)
         results = points_service.get_top_rank(interaction.guild.id, 10)
         if not results:
-            await interaction.response.send_message("まだランキングがありません。")
+            await _send_message(interaction, "まだランキングがありません。")
             return
         rank_embed = discord.Embed(title="**ポイントランキング**", color=0x4EF47D)
         for i, result in enumerate(results):
@@ -64,7 +66,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                     value=f"{result['points']}ポイント",
                     inline=False,
                 )
-        await interaction.response.send_message(embed=rank_embed)
+        await _send_message(interaction, embed=rank_embed)
 
     @tree.command(
         name="send",
@@ -74,15 +76,16 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         interaction: discord.Interaction, user: discord.Member, points: int
     ) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         if points <= 0:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 "**ポイントは1以上で指定してください。**"
             )
             return
+        await _defer_if_needed(interaction)
         sender_id = interaction.user.id
         recipient_id = user.id
         try:
@@ -90,7 +93,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 interaction.guild.id, sender_id, recipient_id, points
             )
         except InsufficientPointsError:
-            await interaction.response.send_message("**ポイントが足りません。**")
+            await _send_message(interaction, "**ポイントが足りません。**")
             return
         embed = discord.Embed(
             title="**ポイント送信！**",
@@ -99,22 +102,23 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             ),
             color=discord.Color.green(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(name="remove", description="ポイントを奪います")
     async def remove_command(
         interaction: discord.Interaction, user: discord.Member, points: int
     ) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         if points <= 0:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 "**ポイントは1以上で指定してください。**"
             )
             return
+        await _defer_if_needed(interaction)
         sender_id = interaction.user.id
         recipient_id = user.id
         try:
@@ -126,7 +130,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 is_admin=_is_guild_admin(interaction),
             )
         except PermissionDeniedError:
-            await interaction.response.send_message(
+            await _send_message(interaction, 
                 embed=_permission_error_embed("ポイント剥奪権限がありません。")
             )
             return
@@ -136,7 +140,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description=f"**{user.display_name}さんはまだポイントを持っていません！**",
                 color=0xFF0000,
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
         except InsufficientPointsError:
             embed = discord.Embed(
@@ -144,7 +148,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description=f"**{user.display_name}さんは{points}ポイント持っていません！**",
                 color=0xFF0000,
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
         except PointsServiceError:
             embed = discord.Embed(
@@ -152,7 +156,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description="**ポイントの移動に失敗しました。**",
                 color=0xFF0000,
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
         embed = discord.Embed(
             title="**ポイント剥奪！**",
@@ -162,7 +166,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             ),
             color=discord.Color.red(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(
         name="permit-remove",
@@ -172,15 +176,16 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         interaction: discord.Interaction, user: discord.Member, allowed: bool
     ) -> None:
         if not _is_guild_admin(interaction):
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー管理者のみ実行できます。")
             )
             return
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
+        await _defer_if_needed(interaction)
         target_id = user.id
         if allowed:
             points_service.grant_remove_permission(interaction.guild.id, target_id)
@@ -189,7 +194,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description=f"**{user.display_name}さんに権限を付与しました。**",
                 color=discord.Color.green(),
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
         try:
             points_service.revoke_remove_permission(interaction.guild.id, target_id)
@@ -199,14 +204,14 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description="**対象ユーザーは権限を持っていません。**",
                 color=0xFF0000,
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
         embed = discord.Embed(
             title="**ポイント剥奪権限を解除しました**",
             description=f"**{user.display_name}さんの権限を解除しました。**",
             color=discord.Color.red(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(
         name="clan-register",
@@ -216,14 +221,15 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         interaction: discord.Interaction, clan_name: str
     ) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
+        await _defer_if_needed(interaction)
         try:
             channel_id = points_service.get_clan_register_channel(interaction.guild.id)
         except MissingClanRegisterChannelError:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("通知先チャンネルが未設定です。")
             )
             return
@@ -231,7 +237,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             client, guild=interaction.guild, channel_id=channel_id
         )
         if channel is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("通知先チャンネルが見つかりません。")
             )
             return
@@ -243,7 +249,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         embed.add_field(name="代表者", value=interaction.user.mention, inline=False)
         embed.add_field(name="サーバー", value=interaction.guild.name, inline=False)
         await channel.send(embed=embed)
-        await interaction.response.send_message("申請を送信しました。")
+        await _send_message(interaction, "申請を送信しました。")
 
     @tree.command(
         name="clan-register-channel",
@@ -253,29 +259,30 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
         if not _is_guild_admin(interaction):
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー管理者のみ実行できます。")
             )
             return
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         if channel.guild.id != interaction.guild.id:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed(
                     "同じサーバーのチャンネルを指定してください。"
                 )
             )
             return
+        await _defer_if_needed(interaction)
         points_service.set_clan_register_channel(interaction.guild.id, channel.id)
         embed = discord.Embed(
             title="**クラン登録通知チャンネルを設定しました**",
             description=f"**通知先: {channel.mention}**",
             color=discord.Color.green(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(
         name="role-buy-register",
@@ -285,31 +292,32 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
         interaction: discord.Interaction, role: discord.Role, price: int
     ) -> None:
         if not _is_guild_admin(interaction):
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー管理者のみ実行できます。")
             )
             return
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         if role.guild.id != interaction.guild.id:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed(
                     "同じサーバーのロールを指定してください。"
                 )
             )
             return
         if price <= 0:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("価格は1以上で指定してください。")
             )
             return
+        await _defer_if_needed(interaction)
         try:
             points_service.set_role_buy_price(interaction.guild.id, role.id, price)
         except InvalidPointsError:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("価格は1以上で指定してください。")
             )
             return
@@ -318,25 +326,25 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             description=f"**対象: {role.mention} / 価格: {price}ポイント**",
             color=discord.Color.green(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
     @tree.command(name="role-buy", description="ロールを購入します。")
     async def role_buy_command(
         interaction: discord.Interaction, role: discord.Role
     ) -> None:
         if interaction.guild is None:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         member = interaction.user
         if not isinstance(member, discord.Member):
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("サーバー内で使用してください。")
             )
             return
         if role.guild.id != interaction.guild.id:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed(
                     "同じサーバーのロールを指定してください。"
                 )
@@ -348,19 +356,20 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
                 description="**既にロールを所持しています。**",
                 color=discord.Color.blue(),
             )
-            await interaction.response.send_message(embed=embed)
+            await _send_message(interaction, embed=embed)
             return
+        await _defer_if_needed(interaction)
         try:
             purchase = points_service.validate_role_purchase(
                 interaction.guild.id, role.id, member.id
             )
         except RoleNotForSaleError:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("このロールは購入対象ではありません。")
             )
             return
         except InsufficientPointsError:
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("ポイントが足りません。")
             )
             return
@@ -373,7 +382,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             points_service.refund_role_purchase(
                 interaction.guild.id, member.id, purchase.price
             )
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("ロールを付与できませんでした。")
             )
             return
@@ -381,7 +390,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             points_service.refund_role_purchase(
                 interaction.guild.id, member.id, purchase.price
             )
-            await interaction.response.send_message(
+            await _send_message(interaction,
                 embed=_permission_error_embed("ロール付与に失敗しました。")
             )
             return
@@ -390,7 +399,7 @@ def register_commands(client: BotClient, *, points_service: PointsService) -> No
             description=f"**{role.mention} を付与しました。**",
             color=discord.Color.green(),
         )
-        await interaction.response.send_message(embed=embed)
+        await _send_message(interaction, embed=embed)
 
 
 def _is_guild_admin(interaction: discord.Interaction) -> bool:
@@ -409,6 +418,24 @@ def _permission_error_embed(message: str) -> discord.Embed:
         description=f"**{message}**",
         color=0xFF0000,
     )
+
+
+async def _defer_if_needed(interaction: discord.Interaction) -> None:
+    if interaction.response.is_done():
+        return
+    try:
+        await interaction.response.defer(thinking=False)
+    except discord.HTTPException:
+        return
+
+
+async def _send_message(
+    interaction: discord.Interaction, content: str | None = None, **kwargs: object
+) -> None:
+    if interaction.response.is_done():
+        await interaction.followup.send(content, **kwargs)
+        return
+    await interaction.response.send_message(content, **kwargs)
 
 
 async def _fetch_text_channel(
