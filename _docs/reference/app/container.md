@@ -12,7 +12,7 @@ related_prs: []
 ---
 
 ## Overview
-`app/container.py` は環境変数から設定を読み込み、`Database` と `PointsRepository`、Discord クライアントを組み立てるためのエントリポイント支援モジュール。
+`app/container.py` はエントリポイント用のファサードであり、設定ロード (`app/settings.py`)・コマンド登録 (`app/command_registry.py`)・Bot 組み立て (`app/bot_factory.py`) をまとめて公開する。
 
 ## Settings
 ### Discord
@@ -36,15 +36,15 @@ related_prs: []
 
 ## API
 - `load_discord_settings(raw_token: str | None = None)` -> `DiscordSettings`
-  - 未指定の場合は環境変数から取得する。
+  - 実装は `app/settings.py`。未指定の場合は環境変数から取得する。
 - `load_db_settings(raw_supabase_url: str | None = None, raw_service_role_key: str | None = None)` -> `DBSettings`
-  - 未指定の場合は環境変数から取得する。
+  - 実装は `app/settings.py`。未指定の場合は環境変数から取得する。
 - `load_config(env_file: str | Path | None = None)` -> `AppConfig`
-  - `.env` を読み込んだ上でアプリ全体の設定を組み立てる。
+  - 実装は `app/settings.py`。`.env` を読み込んだ上でアプリ全体の設定を組み立てる。
 - `register_commands(client: BotClient, points_repo: PointsRepository)` -> `None`
-  - `/point` `/rank` `/send` `/remove` `/permit-remove` `/clan-register` `/clan-register-channel` `/role-buy-register` `/role-buy` コマンドを登録する。
+  - 実装は `app/command_registry.py`。`/point` `/rank` `/send` `/remove` `/permit-remove` `/clan-register` `/clan-register-channel` `/role-buy-register` `/role-buy` コマンドを登録する。
 - `create_bot_client(config: AppConfig)` -> `BotClient`
-  - DB初期化、ポイントスキーマ作成、コマンド登録まで行う。
+  - 実装は `app/bot_factory.py`。DB初期化、ポイントスキーマ作成、コマンド登録まで行う。
 
 ## Usage
 `app/main.py` から `load_config()` を呼び、`create_bot_client()` でBotを組み立てて `run()` する。

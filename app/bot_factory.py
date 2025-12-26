@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+from bot.client import BotClient, create_client
+from service.database import Database, DatabaseError
+from service.repository import PointsRepository
+
+from command_registry import register_commands
+from settings import AppConfig
+
+
+def create_bot_client(config: AppConfig) -> BotClient:
+    db = Database(
+        url=config.db_settings.supabase_url,
+        service_role_key=config.db_settings.service_role_key,
+    )
+    points_repo = PointsRepository(db)
+    print("[startup] DB connection check start")
+    try:
+        schema_ready = db.check_connection()
+    except DatabaseError as exc:
+        print(f"[startup] DB connection check failed: {exc}")
+        raise
+    if schema_ready:
+        print("[startup] DB connection OK")
+    else:
+        print("[startup] DB schema missing. Running setup.")
+    try:
+        points_repo.ensure_schema()
+    except DatabaseError as exc:
+        print(f"[startup] DB schema setup failed: {exc}")
+        raise
+    print("[startup] DB schema OK")
+    client = create_client(points_repo=points_repo)
+    register_commands(client, points_repo=points_repo)
+    return client
