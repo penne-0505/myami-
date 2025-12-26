@@ -13,7 +13,7 @@ related_prs: []
 ---
 
 ## Overview
-`BotClient` は Discord のイベントを受け取り、ポイント付与やコマンド実行に必要な依存を保持する。
+`BotClient` は Discord のイベントを受け取り、ポイント付与やコマンド実行に必要な依存を保持する。実装は `bot/client.py` にある。
 
 ## Behavior
 - Bot からのメッセージは無視する。

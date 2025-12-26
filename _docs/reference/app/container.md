@@ -12,7 +12,7 @@ related_prs: []
 ---
 
 ## Overview
-`container.py` は環境変数から設定を読み込み、`Database` と `PointsRepository`、Discord クライアントを組み立てるためのエントリポイント支援モジュール。
+`app/container.py` は環境変数から設定を読み込み、`Database` と `PointsRepository`、Discord クライアントを組み立てるためのエントリポイント支援モジュール。
 
 ## Settings
 ### Discord
@@ -44,4 +44,4 @@ related_prs: []
   - DB初期化、ポイントスキーマ作成、コマンド登録まで行う。
 
 ## Usage
-`main.py` から `load_config()` を呼び、`create_bot_client()` でBotを組み立てて `run()` する。
+`app/main.py` から `load_config()` を呼び、`create_bot_client()` でBotを組み立てて `run()` する。

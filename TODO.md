@@ -222,7 +222,7 @@ ID 生成およびタイトルのプレフィックスには以下のみを使�
 - **Goal**: VCに接続しているユーザーに対し、時間経過でポイントが付与される。
 - **Steps**:
   1. [ ] Plan の "Requirements" に従いVCポイント付与の条件を実装
-  2. [ ] Plan の "Tasks" に従い `client.py` のロジックを追加
+  2. [ ] Plan の "Tasks" に従い `bot/client.py` のロジックを追加
   3. [ ] Plan の "Test Plan" に従い動作確認を行う
 - **Description**: VC接続中に一定時間ごとにポイントが加算される仕組みを追加する。
 - **Plan**: _docs/plan/Core/voice-pointing.md

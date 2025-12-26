@@ -28,7 +28,7 @@ related_prs: []
      - `DS_SECRET_TOKEN`: Discord Bot トークン
      - `SUPABASE_URL`: Supabase Project URL
      - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role キー
-3. Start Command を `python main.py` に設定する。
+3. Start Command を `python -m app` に設定する。
 4. Deploy を実行し、View logs で起動状況を確認する。
 
 ## Supabase SQL Setup

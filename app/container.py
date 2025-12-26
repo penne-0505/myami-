@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from client import BotClient, create_client
-from database import Database
-from config import load_token
+from bot.client import BotClient, create_client
+from service.database import Database
+from app.config import load_token
 from dotenv import load_dotenv
 from dataclasses import dataclass
 from pathlib import Path
 import discord
 import os
 
-from repository import PointsRepository
+from service.repository import PointsRepository
 
 
 @dataclass(frozen=True, slots=True)
